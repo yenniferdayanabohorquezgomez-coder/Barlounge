@@ -20,12 +20,15 @@ import NewProductType from './pages/NewProductType';
 import NewSite from './pages/NewSite';
 import NewSupplier from './pages/NewSupplier';
 import NewUser from './pages/NewUser';
+import OrderDetail from './pages/OrderDetail';
 import Products from './pages/Products';
 import ProductTypes from './pages/ProductTypes';
 import RecoverPassword from './pages/RecoverPassword';
 import Sites from './pages/Sites';
 import Suppliers from './pages/Suppliers';
+import Tables from './pages/Tables';
 import Users from './pages/Users';
+import ProductAssignments from './pages/ProductAssignments';
 
 export default function App() {
     return (
@@ -87,6 +90,10 @@ export default function App() {
                                 element={<Products />}
                             />
                             <Route
+                                path="/product-assignments"
+                                element={<ProductAssignments />}
+                            />
+                            <Route
                                 path="/products/new"
                                 element={<NewProduct />}
                             />
@@ -117,6 +124,26 @@ export default function App() {
                             <Route
                                 path="/product-types/:id/edit"
                                 element={<EditProductType />}
+                            />
+                        </Route>
+                        <Route
+                            element={
+                                <ProtectedRoute
+                                    allowedRoles={[
+                                        'Administrador',
+                                        'Mesero'
+                                    ]}
+                                />
+                            }
+                        >
+                            <Route
+                                path="/tables"
+                                element={<Tables />}
+                            />
+
+                            <Route
+                                path="/orders/:id"
+                                element={<OrderDetail />}
                             />
                         </Route>
                         <Route

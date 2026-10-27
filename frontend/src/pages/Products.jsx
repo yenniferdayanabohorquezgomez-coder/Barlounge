@@ -1,137 +1,132 @@
+
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getProducts } from '../services/productService';
 import { selectionSort } from '../utils/selectionSort';
 
+function formatPrice(value) {
+    return `$ ${Number(value || 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })}`;
+}
+
 export default function Products() {
-
-    // =========================================================
-    // DATOS
-    // =========================================================
-
     const [rows, setRows] = useState([]);
-
     const [error, setError] = useState('');
-
-    // =========================================================
-    // FILTROS
-    // =========================================================
+    const [loading, setLoading] = useState(true);
 
     const [search, setSearch] = useState('');
-
     const [typeFilter, setTypeFilter] = useState('');
-
     const [supplierFilter, setSupplierFilter] = useState('');
-
     const [statusFilter, setStatusFilter] = useState('');
 
-    // =========================================================
-    // CARGAR PRODUCTOS
-    // =========================================================
+    // ========================================================
+    // LOAD PRODUCTS
+    // ========================================================
 
     useEffect(() => {
+        let active = true;
 
         getProducts()
+            .then((data) => {
+                if (!active) return;
 
-            .then(data => {
+                const products = Array.isArray(data) ? data : [];
 
-                // Se mantiene el Selection Sort
-                // que ya utiliza BARLOUNGE.
                 setRows(
-                    selectionSort(
-                        data,
-                        'name'
-                    )
+                    selectionSort(products, 'name')
                 );
-
             })
-
             .catch((e) => {
+                if (!active) return;
+
+                console.error('Error loading products:', e);
 
                 setError(
                     e.response?.data?.message ||
                     'Unable to load products.'
                 );
-
+            })
+            .finally(() => {
+                if (active) setLoading(false);
             });
 
+        return () => {
+            active = false;
+        };
     }, []);
 
-    // =========================================================
-    // TIPOS
-    // =========================================================
+    // ========================================================
+    // FILTER OPTIONS
+    // ========================================================
 
-    const productTypes = useMemo(() => {
+    const productTypes = useMemo(
+        () =>
+            [
+                ...new Set(
+                    rows
+                        .map((product) => product.product_type)
+                        .filter(Boolean)
+                )
+            ].sort(),
+        [rows]
+    );
 
-        return [
-            ...new Set(
-                rows
-                    .map(product => product.product_type)
-                    .filter(Boolean)
-            )
-        ].sort();
+    const suppliers = useMemo(
+        () =>
+            [
+                ...new Set(
+                    rows
+                        .map((product) => product.supplier)
+                        .filter(Boolean)
+                )
+            ].sort(),
+        [rows]
+    );
 
-    }, [rows]);
+    const statuses = useMemo(
+        () =>
+            [
+                ...new Set(
+                    rows
+                        .map((product) => product.status)
+                        .filter(Boolean)
+                )
+            ].sort(),
+        [rows]
+    );
 
-    // =========================================================
-    // PROVEEDORES
-    // =========================================================
-
-    const suppliers = useMemo(() => {
-
-        return [
-            ...new Set(
-                rows
-                    .map(product => product.supplier)
-                    .filter(Boolean)
-            )
-        ].sort();
-
-    }, [rows]);
-
-    // =========================================================
-    // ESTADOS
-    // =========================================================
-
-    const statuses = useMemo(() => {
-
-        return [
-            ...new Set(
-                rows
-                    .map(product => product.status)
-                    .filter(Boolean)
-            )
-        ].sort();
-
-    }, [rows]);
-
-    // =========================================================
-    // FILTRAR
-    // =========================================================
+    // ========================================================
+    // SEARCH AND FILTER
+    // ========================================================
 
     const filteredRows = useMemo(() => {
-
-        const text = search
-            .trim()
-            .toLowerCase();
+        const text = search.trim().toLowerCase();
 
         return rows.filter((product) => {
+            const searchableValues = [
+                product.code,
+                product.name,
+                product.product_type,
+                product.supplier,
+                product.purchase_unit,
+                product.sale_unit,
+                product.purchase_price,
+                product.sale_price,
+                product.status
+            ];
 
             const matchesSearch =
                 !text ||
-                [
-                    product.code,
-                    product.name,
-                    product.product_type,
-                    product.supplier,
-                    product.purchase_unit,
-                    product.sale_unit,
-                    product.sale_price,
-                    product.status
-                ]
-                    .filter(Boolean)
-                    .some(value =>
+                searchableValues
+                    .filter(
+                        (value) =>
+                            value !== null &&
+                            value !== undefined
+                    )
+                    .some((value) =>
                         String(value)
                             .toLowerCase()
                             .includes(text)
@@ -155,9 +150,7 @@ export default function Products() {
                 matchesSupplier &&
                 matchesStatus
             );
-
         });
-
     }, [
         rows,
         search,
@@ -166,41 +159,31 @@ export default function Products() {
         statusFilter
     ]);
 
-    // =========================================================
-    // LIMPIAR
-    // =========================================================
+    // ========================================================
+    // CLEAR FILTERS
+    // ========================================================
 
-    const clearFilters = () => {
-
+    function clearFilters() {
         setSearch('');
-
         setTypeFilter('');
-
         setSupplierFilter('');
-
         setStatusFilter('');
+    }
 
-    };
-
-    // =========================================================
+    // ========================================================
     // RENDER
-    // =========================================================
+    // ========================================================
 
     return (
         <div className="page">
-
             <div className="page-heading">
-
                 <div>
-
-                    <h1>
-                        Products
-                    </h1>
+                    <h1>Products</h1>
 
                     <p>
-                        Global catalog and price; inventory remains per site.
+                        Manage the global catalog, purchase prices
+                        and sale prices. Inventory is managed per site.
                     </p>
-
                 </div>
 
                 <Link
@@ -209,139 +192,90 @@ export default function Products() {
                 >
                     + New product
                 </Link>
-
             </div>
 
             {error && (
-                <div className="alert error">
+                <div className="alert error" role="alert">
                     {error}
                 </div>
             )}
 
-            {/* Filtros */}
+            {/* FILTERS */}
+
             <div className="data-filter-panel products-filter-panel">
                 <div className="data-filter-field search-field">
-                    <label>
+                    <label htmlFor="product-search">
                         Search
                     </label>
+
                     <input
+                        id="product-search"
                         type="text"
                         value={search}
-                        onChange={e =>
-                            setSearch(
-                                e.target.value
-                            )
-                        }
-                        placeholder="Search by code, name, type, supplier, unit, price or status"
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search by code, name, type, supplier, unit or price"
                     />
-
                 </div>
 
-
                 <div className="data-filter-field">
-
-                    <label>
+                    <label htmlFor="product-type-filter">
                         Product type
                     </label>
 
                     <select
+                        id="product-type-filter"
                         value={typeFilter}
-                        onChange={e =>
-                            setTypeFilter(
-                                e.target.value
-                            )
-                        }
+                        onChange={(e) => setTypeFilter(e.target.value)}
                     >
+                        <option value="">All types</option>
 
-                        <option value="">
-                            All types
-                        </option>
-
-                        {productTypes.map(type => (
-
-                            <option
-                                key={type}
-                                value={type}
-                            >
+                        {productTypes.map((type) => (
+                            <option key={type} value={type}>
                                 {type}
                             </option>
-
                         ))}
-
                     </select>
-
                 </div>
 
-
                 <div className="data-filter-field">
-
-                    <label>
+                    <label htmlFor="product-supplier-filter">
                         Supplier
                     </label>
 
                     <select
+                        id="product-supplier-filter"
                         value={supplierFilter}
-                        onChange={e =>
-                            setSupplierFilter(
-                                e.target.value
-                            )
-                        }
+                        onChange={(e) => setSupplierFilter(e.target.value)}
                     >
+                        <option value="">All suppliers</option>
 
-                        <option value="">
-                            All suppliers
-                        </option>
-
-                        {suppliers.map(supplier => (
-
-                            <option
-                                key={supplier}
-                                value={supplier}
-                            >
+                        {suppliers.map((supplier) => (
+                            <option key={supplier} value={supplier}>
                                 {supplier}
                             </option>
-
                         ))}
-
                     </select>
-
                 </div>
 
-
                 <div className="data-filter-field">
-
-                    <label>
+                    <label htmlFor="product-status-filter">
                         Status
                     </label>
 
                     <select
+                        id="product-status-filter"
                         value={statusFilter}
-                        onChange={e =>
-                            setStatusFilter(
-                                e.target.value
-                            )
-                        }
+                        onChange={(e) => setStatusFilter(e.target.value)}
                     >
+                        <option value="">All statuses</option>
 
-                        <option value="">
-                            All statuses
-                        </option>
-
-                        {statuses.map(status => (
-
-                            <option
-                                key={status}
-                                value={status}
-                            >
+                        {statuses.map((status) => (
+                            <option key={status} value={status}>
                                 {status}
                             </option>
-
                         ))}
-
                     </select>
-
                 </div>
-
 
                 <button
                     type="button"
@@ -350,140 +284,98 @@ export default function Products() {
                 >
                     Clear filters
                 </button>
-
             </div>
 
+            {/* RESULTS COUNT */}
 
             <div className="data-results">
-
-                Showing{' '}
-                <strong>
-                    {filteredRows.length}
-                </strong>
-                {' '}of{' '}
-                <strong>
-                    {rows.length}
-                </strong>
-                {' '}products
-
+                Showing <strong>{filteredRows.length}</strong>
+                {' '}of <strong>{rows.length}</strong> products
             </div>
 
+            {/* PRODUCT CATALOG */}
 
-            <div className="panel table-wrap">
-
-                <table>
-
-                    <thead>
-
-                        <tr>
-
-                            <th>Code</th>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Supplier</th>
-                            <th>Purchase unit</th>
-                            <th>Sale unit</th>
-                            <th>Sale price</th>
-                            <th>Status</th>
-                            <th></th>
-
-                        </tr>
-
-                    </thead>
-
-                    <tbody>
-
-                        {filteredRows.length === 0 ? (
-
+            {loading ? (
+                <div className="panel">
+                    Loading products...
+                </div>
+            ) : (
+                <div className="panel table-wrap">
+                    <table>
+                        <thead>
                             <tr>
-
-                                <td
-                                    colSpan="9"
-                                    className="data-empty"
-                                >
-                                    No products match the selected filters.
-                                </td>
-
+                                <th>Code</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Supplier</th>
+                                <th>Purchase unit</th>
+                                <th>Sale unit</th>
+                                <th>Purchase price</th>
+                                <th>Sale price</th>
+                                <th>Status</th>
+                                <th>Actions</th>
                             </tr>
+                        </thead>
 
-                        ) : (
-
-                            filteredRows.map(product => (
-
-                                <tr
-                                    key={product.product_id}
-                                >
-
-                                    <td>
-                                        {product.code}
+                        <tbody>
+                            {filteredRows.length === 0 ? (
+                                <tr>
+                                    <td
+                                        colSpan="10"
+                                        className="data-empty"
+                                    >
+                                        No products match the selected filters.
                                     </td>
-
-                                    <td>
-                                        {product.name}
-                                    </td>
-
-                                    <td>
-                                        {product.product_type}
-                                    </td>
-
-                                    <td>
-                                        {product.supplier}
-                                    </td>
-
-                                    <td>
-                                        {product.purchase_unit}
-                                    </td>
-
-                                    <td>
-                                        {product.sale_unit}
-                                    </td>
-
-                                    <td>
-                                        ${' '}
-                                        {Number(
-                                            product.sale_price
-                                        ).toLocaleString(
-                                            'en-US'
-                                        )}
-                                    </td>
-
-                                    <td>
-
-                                        <span
-                                            className={
-                                                `status ${String(
-                                                    product.status || ''
-                                                ).toLowerCase()}`
-                                            }
-                                        >
-                                            {product.status}
-                                        </span>
-
-                                    </td>
-
-                                    <td>
-
-                                        <Link
-                                            className="table-link"
-                                            to={`/products/${product.product_id}/edit`}
-                                        >
-                                            Edit
-                                        </Link>
-
-                                    </td>
-
                                 </tr>
+                            ) : (
+                                filteredRows.map((product) => (
+                                    <tr key={product.product_id}>
+                                        <td>{product.code}</td>
+                                        <td>{product.name}</td>
+                                        <td>{product.product_type}</td>
+                                        <td>{product.supplier}</td>
+                                        <td>{product.purchase_unit}</td>
+                                        <td>{product.sale_unit}</td>
 
-                            ))
+                                        <td>
+                                            {formatPrice(
+                                                product.purchase_price
+                                            )}
+                                        </td>
 
-                        )}
+                                        <td>
+                                            {formatPrice(
+                                                product.sale_price
+                                            )}
+                                        </td>
 
-                    </tbody>
+                                        <td>
+                                            <span
+                                                className={
+                                                    `status ${String(
+                                                        product.status || ''
+                                                    ).toLowerCase()}`
+                                                }
+                                            >
+                                                {product.status}
+                                            </span>
+                                        </td>
 
-                </table>
-
-            </div>
-
+                                        <td>
+                                            <Link
+                                                className="table-link"
+                                                to={`/products/${product.product_id}/edit`}
+                                            >
+                                                Edit
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
     );
 }

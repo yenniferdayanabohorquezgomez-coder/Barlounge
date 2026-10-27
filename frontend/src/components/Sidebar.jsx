@@ -35,6 +35,12 @@ const links = [
         (u) => u.role === 'Administrador'
     ],
 
+    [
+        'Product Assignment',
+        '/product-assignments',
+        (u) => u.role === 'Administrador'
+    ],
+
     // Solo Administrador.
     [
         'Suppliers',
@@ -47,6 +53,16 @@ const links = [
         'Product types',
         '/product-types',
         (u) => u.role === 'Administrador'
+    ],
+
+    [
+        'Tables',
+        '/tables',
+        (u) =>
+            [
+                'Administrador',
+                'Mesero'
+            ].includes(u.role)
     ],
 
     // Administrador y Cajero.

@@ -1,73 +1,360 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
 import FormField from '../components/FormField';
+
 import { createProduct } from '../services/productService';
 import { getProductTypes } from '../services/productTypeService';
 import { getSuppliers } from '../services/supplierService';
 import { showFlash } from '../utils/flashMessage';
 
 export default function NewProduct() {
-    const nav = useNavigate();
-    const [f, setF] = useState({
+    const navigate = useNavigate();
+
+    const [form, setForm] = useState({
         code: '',
         name: '',
         purchaseUnit: 'unit',
         saleUnit: 'unit',
+        purchasePrice: '',
+        salePrice: '',
         productTypeId: '',
         supplierId: '',
-        salePrice: 0,
         status: 'ACTIVE'
     });
+
     const [suppliers, setSuppliers] = useState([]);
     const [types, setTypes] = useState([]);
+
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+
+    // ========================================================
+    // LOAD FORM OPTIONS
+    // ========================================================
+
     useEffect(() => {
-        Promise.all([getSuppliers(), getProductTypes()]).then(([s, t]) => {
-            setSuppliers(s);
-            setTypes(t);
-        }).catch(e => setError(e.response?.data?.message || 'Unable to load form data.'));
+        let active = true;
+
+        Promise.all([
+            getSuppliers(),
+            getProductTypes()
+        ])
+            .then(([supplierData, typeData]) => {
+                if (!active) return;
+
+                setSuppliers(
+                    Array.isArray(supplierData)
+                        ? supplierData
+                        : []
+                );
+
+                setTypes(
+                    Array.isArray(typeData)
+                        ? typeData
+                        : []
+                );
+            })
+            .catch((e) => {
+                if (!active) return;
+
+                console.error(
+                    'Error loading product form options:',
+                    e
+                );
+
+                setError(
+                    e.response?.data?.message ||
+                    'Unable to load suppliers and product types.'
+                );
+            })
+            .finally(() => {
+                if (active) setLoading(false);
+            });
+
+        return () => {
+            active = false;
+        };
     }, []);
-    const submit = async e => {
-        e.preventDefault();
+
+    // ========================================================
+    // FORM HANDLER
+    // ========================================================
+
+    function handleChange(event) {
+        const { name, value } = event.target;
+
+        setForm((current) => ({
+            ...current,
+            [name]: value
+        }));
+    }
+
+    // ========================================================
+    // CREATE PRODUCT
+    // ========================================================
+
+    async function handleSubmit(event) {
+        event.preventDefault();
+
+        if (saving) return;
+
+        const purchasePrice = Number(form.purchasePrice);
+        const salePrice = Number(form.salePrice);
+
+        if (
+            form.purchasePrice === '' ||
+            !Number.isFinite(purchasePrice) ||
+            purchasePrice < 0
+        ) {
+            setError(
+                'Enter a valid purchase price greater than or equal to zero.'
+            );
+            return;
+        }
+
+        if (
+            form.salePrice === '' ||
+            !Number.isFinite(salePrice) ||
+            salePrice < 0
+        ) {
+            setError(
+                'Enter a valid sale price greater than or equal to zero.'
+            );
+            return;
+        }
+
+        if (
+            !Number.isInteger(Number(form.productTypeId)) ||
+            Number(form.productTypeId) <= 0 ||
+            !Number.isInteger(Number(form.supplierId)) ||
+            Number(form.supplierId) <= 0
+        ) {
+            setError(
+                'Select a valid product type and supplier.'
+            );
+            return;
+        }
+
+        setSaving(true);
+        setError('');
+
         try {
             await createProduct({
-                ...f,
-                productTypeId: Number(f.productTypeId),
-                supplierId: Number(f.supplierId),
-                salePrice: Number(f.salePrice)
+                code: form.code.trim(),
+                name: form.name.trim(),
+                purchaseUnit: form.purchaseUnit.trim(),
+                saleUnit: form.saleUnit.trim(),
+
+                purchasePrice,
+                salePrice,
+
+                productTypeId: Number(form.productTypeId),
+                supplierId: Number(form.supplierId),
+                status: form.status
             });
+
             showFlash(
                 'success',
                 'Product created successfully.'
             );
-            nav('/products');
-        } catch (err) {
-            setError(err.response?.data?.message || 'Unable to create product.');
+
+            navigate('/products');
+        } catch (e) {
+            console.error('Error creating product:', e);
+
+            setError(
+                e.response?.data?.message ||
+                'Unable to create product.'
+            );
+        } finally {
+            setSaving(false);
         }
-    };
-    return <div className="page"><div className="page-heading"><div><h1>New product</h1></div></div><form className="panel form-grid" onSubmit={submit}><FormField label="Product code"><input value={f.code} onChange={e => setF({
-            ...f,
-            code: e.target.value
-        })} required /></FormField><FormField label="Name"><input value={f.name} onChange={e => setF({
-            ...f,
-            name: e.target.value
-        })} required /></FormField><FormField label="Purchase unit"><input value={f.purchaseUnit} onChange={e => setF({
-            ...f,
-            purchaseUnit: e.target.value
-        })} required /></FormField><FormField label="Sale unit"><input value={f.saleUnit} onChange={e => setF({
-            ...f,
-            saleUnit: e.target.value
-        })} required /></FormField><FormField label="Product type"><select value={f.productTypeId} onChange={e => setF({
-            ...f,
-            productTypeId: e.target.value
-        })} required><option value="">Select type</option>{types.map(t => <option key={t.product_type_id} value={t.product_type_id}>{t.name}</option>)}</select></FormField><FormField label="Supplier"><select value={f.supplierId} onChange={e => setF({
-            ...f,
-            supplierId: e.target.value
-        })} required><option value="">Select supplier</option>{suppliers.map(s => <option key={s.supplier_id} value={s.supplier_id}>{s.name}</option>)}</select></FormField><FormField label="Sale price"><input type="number" min="0" step="0.01" value={f.salePrice} onChange={e => setF({
-            ...f,
-            salePrice: e.target.value
-        })} required /></FormField><FormField label="Status"><select value={f.status} onChange={e => setF({
-            ...f,
-            status: e.target.value
-        })}><option>ACTIVE</option><option>INACTIVE</option></select></FormField>{error && <div className="alert error full">{error}</div>}<div className="form-actions full"><button type="button" className="button ghost" onClick={() => nav('/products')}>Cancel</button><button className="button primary">Save product</button></div></form></div>;
+    }
+
+    // ========================================================
+    // RENDER
+    // ========================================================
+
+    if (loading) {
+        return (
+            <div className="page">
+                <div className="panel">
+                    Loading product form...
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="page">
+            <div className="page-heading">
+                <div>
+                    <h1>New product</h1>
+
+                    <p>
+                        Add a product to the global catalog,
+                        including its purchase and sale prices.
+                    </p>
+                </div>
+            </div>
+
+            {error && (
+                <div className="alert error" role="alert">
+                    {error}
+                </div>
+            )}
+
+            <form
+                className="panel form-grid"
+                onSubmit={handleSubmit}
+            >
+                <FormField label="Product code">
+                    <input
+                        name="code"
+                        value={form.code}
+                        onChange={handleChange}
+                        maxLength={30}
+                        autoComplete="off"
+                        required
+                    />
+                </FormField>
+
+                <FormField label="Product name">
+                    <input
+                        name="name"
+                        value={form.name}
+                        onChange={handleChange}
+                        maxLength={120}
+                        required
+                    />
+                </FormField>
+
+                <FormField label="Purchase unit">
+                    <input
+                        name="purchaseUnit"
+                        value={form.purchaseUnit}
+                        onChange={handleChange}
+                        maxLength={50}
+                        placeholder="e.g. box, bottle, package"
+                        required
+                    />
+                </FormField>
+
+                <FormField label="Sale unit">
+                    <input
+                        name="saleUnit"
+                        value={form.saleUnit}
+                        onChange={handleChange}
+                        maxLength={50}
+                        placeholder="e.g. unit, glass, serving"
+                        required
+                    />
+                </FormField>
+
+                <FormField label="Purchase price">
+                    <input
+                        type="number"
+                        name="purchasePrice"
+                        min="0"
+                        step="0.01"
+                        value={form.purchasePrice}
+                        onChange={handleChange}
+                        placeholder="0.00"
+                        required
+                    />
+                </FormField>
+
+                <FormField label="Sale price">
+                    <input
+                        type="number"
+                        name="salePrice"
+                        min="0"
+                        step="0.01"
+                        value={form.salePrice}
+                        onChange={handleChange}
+                        placeholder="0.00"
+                        required
+                    />
+                </FormField>
+
+                <FormField label="Product type">
+                    <select
+                        name="productTypeId"
+                        value={form.productTypeId}
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="">
+                            Select product type
+                        </option>
+
+                        {types.map((type) => (
+                            <option
+                                key={type.product_type_id}
+                                value={type.product_type_id}
+                            >
+                                {type.name}
+                            </option>
+                        ))}
+                    </select>
+                </FormField>
+
+                <FormField label="Supplier">
+                    <select
+                        name="supplierId"
+                        value={form.supplierId}
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="">
+                            Select supplier
+                        </option>
+
+                        {suppliers.map((supplier) => (
+                            <option
+                                key={supplier.supplier_id}
+                                value={supplier.supplier_id}
+                            >
+                                {supplier.name}
+                            </option>
+                        ))}
+                    </select>
+                </FormField>
+
+                <FormField label="Status">
+                    <select
+                        name="status"
+                        value={form.status}
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                </FormField>
+
+                <div className="form-actions full">
+                    <button
+                        type="button"
+                        className="button ghost"
+                        disabled={saving}
+                        onClick={() => navigate('/products')}
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        className="button primary"
+                        disabled={saving}
+                    >
+                        {saving ? 'Saving...' : 'Save product'}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
 }

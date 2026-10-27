@@ -1,6 +1,17 @@
 const pool = require('../config/db');
 const audit = require('./auditService');
 
+function logAuditSafely(entry) {
+    Promise.resolve()
+        .then(() => audit.log(entry))
+        .catch((error) => {
+            console.error(
+                '[BARLOUNGE] Site audit error:',
+                error
+            );
+        });
+}
+
 async function list() {
   const [rows] = await pool.query(`SELECT site_id,code,name,address,status,created_at,updated_at FROM sites ORDER BY name ASC`);
   return rows;
@@ -11,32 +22,57 @@ async function getById(id) {
   return rows[0] || null;
 }
 
+
 async function create(data, actorId) {
-  const c = await pool.getConnection();
-  try {
-    await c.beginTransaction();
-    const [r] = await c.query(`INSERT INTO sites(code,name,address,status) VALUES(?,?,?,?)`, [data.code, data.name, data.address, data.status]);
-    const [products] = await c.query(`SELECT product_id FROM products WHERE status='ACTIVE'`);
-    if (products.length) {
-      const values = products.map(p => [r.insertId, p.product_id, 0]);
-      await c.query(`INSERT INTO inventory(site_id,product_id,quantity) VALUES ?`, [values]);
+    const connection = await pool.getConnection();
+
+    let siteId;
+
+    try {
+        await connection.beginTransaction();
+
+        const [result] = await connection.query(
+            `
+            INSERT INTO sites (
+                code,
+                name,
+                address,
+                status
+            )
+            VALUES (?, ?, ?, ?)
+            `,
+            [
+                data.code,
+                data.name,
+                data.address,
+                data.status
+            ]
+        );
+
+        siteId = result.insertId;
+
+        // Products are assigned to this site separately
+        // through the Product Assignment module.
+
+        await connection.commit();
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
     }
-    await c.commit();
-    await audit.log({
-      userId: actorId,
-      action: 'CREATE',
-      entity: 'sites',
-      entityId: r.insertId,
-      result: 'SUCCESS'
+
+    logAuditSafely({
+        userId: actorId,
+        action: 'CREATE',
+        entity: 'sites',
+        entityId: siteId,
+        result: 'SUCCESS'
     });
-    return getById(r.insertId);
-  } catch (e) {
-    await c.rollback();
-    throw e;
-  } finally {
-    c.release();
-  }
+
+    return getById(siteId);
 }
+
 
 async function update(id, data, actorId) {
   await pool.query(`UPDATE sites SET name=?,address=?,status=? WHERE site_id=?`, [data.name, data.address, data.status, id]);

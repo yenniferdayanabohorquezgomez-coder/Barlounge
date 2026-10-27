@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS products (
     name VARCHAR(120) NOT NULL,
     purchase_unit VARCHAR(50) NOT NULL,
     sale_unit VARCHAR(50) NOT NULL,
+    purchase_price DECIMAL(12,2) NOT NULL DEFAULT 0,
     product_type_id INT NOT NULL,
     supplier_id INT NOT NULL,
     sale_price DECIMAL(12,2) NOT NULL DEFAULT 0,
