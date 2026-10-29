@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     useLocation,
     useNavigate,
@@ -99,6 +99,47 @@ export default function Tables() {
     const [busyTableId, setBusyTableId] = useState(null);
     const [selectedTable, setSelectedTable] = useState(null);
     const [error, setError] = useState('');
+
+    const tablesScrollerRef = useRef(null);
+    const [canScrollTablesLeft, setCanScrollTablesLeft] = useState(false);
+    const [canScrollTablesRight, setCanScrollTablesRight] = useState(false);
+
+    const updateTablesScrollButtons = useCallback(() => {
+        const element = tablesScrollerRef.current;
+        if (!element) return;
+
+        setCanScrollTablesLeft(element.scrollLeft > 2);
+        setCanScrollTablesRight(
+            element.scrollLeft + element.clientWidth < element.scrollWidth - 2
+        );
+    }, []);
+
+    const scrollTables = (direction) => {
+        const element = tablesScrollerRef.current;
+        if (!element) return;
+
+        element.scrollBy({
+            left: direction * element.clientWidth * 0.8,
+            behavior: 'smooth'
+        });
+    };
+
+
+    useEffect(() => {
+        const element = tablesScrollerRef.current;
+        if (!element) return undefined;
+
+        updateTablesScrollButtons();
+        element.addEventListener('scroll', updateTablesScrollButtons);
+
+        const resizeObserver = new ResizeObserver(updateTablesScrollButtons);
+        resizeObserver.observe(element);
+
+        return () => {
+            element.removeEventListener('scroll', updateTablesScrollButtons);
+            resizeObserver.disconnect();
+        };
+    }, [tables.length, loading, loadingSites, updateTablesScrollButtons]);
 
     // ========================================================
     // LOAD SITES
@@ -503,10 +544,23 @@ export default function Tables() {
 
                 /* TABLE CARDS */
 
-                <div
-                    className="tables-grid notranslate"
-                    translate="no"
-                >
+                <div className="tables-carousel">
+                    <button
+                        type="button"
+                        className="carousel-arrow"
+                        onClick={() => scrollTables(-1)}
+                        disabled={!canScrollTablesLeft}
+                        aria-label="Mesas anteriores"
+                        title="Mesas anteriores"
+                    >
+                        ‹
+                    </button>
+
+                    <div
+                        className="tables-grid notranslate"
+                        translate="no"
+                        ref={tablesScrollerRef}
+                    >
                     {tableRows.map((table) => {
                         const status = normalizeStatus(table);
 
@@ -592,6 +646,18 @@ export default function Tables() {
                             </article>
                         );
                     })}
+                    </div>
+
+                    <button
+                        type="button"
+                        className="carousel-arrow"
+                        onClick={() => scrollTables(1)}
+                        disabled={!canScrollTablesRight}
+                        aria-label="Siguientes mesas"
+                        title="Siguientes mesas"
+                    >
+                        ›
+                    </button>
                 </div>
             )}
 

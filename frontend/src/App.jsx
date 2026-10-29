@@ -3,10 +3,14 @@ import {
     Route,
     Routes
 } from 'react-router-dom';
+
 import FlashMessage from './components/FlashMessage';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+
 import { AuthProvider } from './context/AuthContext';
+
+import CashierOrders from './pages/CashierOrders';
 import Dashboard from './pages/Dashboard';
 import EditProduct from './pages/EditProduct';
 import EditProductType from './pages/EditProductType';
@@ -14,6 +18,7 @@ import EditSite from './pages/EditSite';
 import EditSupplier from './pages/EditSupplier';
 import EditUser from './pages/EditUser';
 import Inventory from './pages/Inventory';
+import Invoice from './pages/Invoice';
 import Login from './pages/Login';
 import NewProduct from './pages/NewProduct';
 import NewProductType from './pages/NewProductType';
@@ -21,6 +26,7 @@ import NewSite from './pages/NewSite';
 import NewSupplier from './pages/NewSupplier';
 import NewUser from './pages/NewUser';
 import OrderDetail from './pages/OrderDetail';
+import ProductAssignments from './pages/ProductAssignments';
 import Products from './pages/Products';
 import ProductTypes from './pages/ProductTypes';
 import RecoverPassword from './pages/RecoverPassword';
@@ -28,7 +34,6 @@ import Sites from './pages/Sites';
 import Suppliers from './pages/Suppliers';
 import Tables from './pages/Tables';
 import Users from './pages/Users';
-import ProductAssignments from './pages/ProductAssignments';
 
 export default function App() {
     return (
@@ -38,20 +43,21 @@ export default function App() {
                     path="/login"
                     element={<Login />}
                 />
+
                 <Route
                     path="/recover-password"
                     element={<RecoverPassword />}
                 />
-                <Route
-                    element={<ProtectedRoute />}
-                >
-                    <Route
-                        element={<Layout />}
-                    >
+
+                <Route element={<ProtectedRoute />}>
+                    <Route element={<Layout />}>
                         <Route
                             path="/dashboard"
                             element={<Dashboard />}
                         />
+
+                        {/* ADMINISTRATOR */}
+
                         <Route
                             element={
                                 <ProtectedRoute
@@ -73,6 +79,7 @@ export default function App() {
                                 path="/users/:id/edit"
                                 element={<EditUser />}
                             />
+
                             <Route
                                 path="/sites"
                                 element={<Sites />}
@@ -85,6 +92,7 @@ export default function App() {
                                 path="/sites/:id/edit"
                                 element={<EditSite />}
                             />
+
                             <Route
                                 path="/products"
                                 element={<Products />}
@@ -101,6 +109,7 @@ export default function App() {
                                 path="/products/:id/edit"
                                 element={<EditProduct />}
                             />
+
                             <Route
                                 path="/suppliers"
                                 element={<Suppliers />}
@@ -113,6 +122,7 @@ export default function App() {
                                 path="/suppliers/:id/edit"
                                 element={<EditSupplier />}
                             />
+
                             <Route
                                 path="/product-types"
                                 element={<ProductTypes />}
@@ -126,6 +136,9 @@ export default function App() {
                                 element={<EditProductType />}
                             />
                         </Route>
+
+                        {/* TABLES AND ORDERS */}
+
                         <Route
                             element={
                                 <ProtectedRoute
@@ -146,6 +159,9 @@ export default function App() {
                                 element={<OrderDetail />}
                             />
                         </Route>
+
+                        {/* CASH REGISTER AND INVENTORY */}
+
                         <Route
                             element={
                                 <ProtectedRoute
@@ -157,12 +173,33 @@ export default function App() {
                             }
                         >
                             <Route
+                                path="/cashier/orders"
+                                element={<CashierOrders />}
+                            />
+
+                            <Route
                                 path="/inventory"
                                 element={<Inventory />}
                             />
+                            <Route
+                                element={
+                                    <ProtectedRoute
+                                        allowedRoles={[
+                                            'Administrador',
+                                            'Cajero'
+                                        ]}
+                                    />
+                                }
+                            >
+                                <Route
+                                    path="/invoices/:invoiceId"
+                                    element={<Invoice />}
+                                />
+                            </Route>
                         </Route>
                     </Route>
                 </Route>
+
                 <Route
                     path="*"
                     element={
@@ -173,6 +210,7 @@ export default function App() {
                     }
                 />
             </Routes>
+
             <FlashMessage />
         </AuthProvider>
     );

@@ -1,318 +1,217 @@
 import { useEffect, useState } from 'react';
 import { getDashboard } from '../services/dashboardService';
 
-export default function Dashboard() {
+const currency = (value) =>
+    `$ ${Number(value || 0).toLocaleString('es-CO', {
+        maximumFractionDigits: 0
+    })}`;
 
-    // =========================================================
-    // ESTADO DEL DASHBOARD
-    // =========================================================
+export default function Dashboard() {
     const [d, setD] = useState(null);
     const [error, setError] = useState('');
 
-    // =========================================================
-    // CARGAR INFORMACIÓN DEL DASHBOARD
-    // =========================================================
     useEffect(() => {
+        let active = true;
 
-        getDashboard()
-            .then(setD)
-            .catch((e) => {
+        const loadDashboard = async () => {
+            try {
+                const data = await getDashboard();
 
-                setError(
-                    e.response?.data?.message ||
-                    'Unable to load dashboard.'
-                );
+                if (active) {
+                    setD(data);
+                    setError('');
+                }
+            } catch (e) {
+                if (active) {
+                    setError(
+                        e.response?.data?.message ||
+                        'No se pudo cargar el dashboard.'
+                    );
+                }
+            }
+        };
 
-            });
+        loadDashboard();
 
+        // Actualizar los datos cada 30 segundos.
+        const interval = setInterval(loadDashboard, 30000);
+
+        return () => {
+            active = false;
+            clearInterval(interval);
+        };
     }, []);
 
-    // =========================================================
-    // MOSTRAR ERROR
-    // =========================================================
     if (error) {
-
         return (
             <div className="panel">
-
-                <div className="alert error">
-                    {error}
-                </div>
-
+                <div className="alert error">{error}</div>
             </div>
         );
     }
 
-    // =========================================================
-    // MOSTRAR CARGA
-    // =========================================================
     if (!d) {
-
         return (
             <div className="panel loading">
-                Loading dashboard...
+                Cargando dashboard...
             </div>
         );
     }
 
-    // =========================================================
-    // TARJETAS PRINCIPALES
-    // =========================================================
-    //
-    // Se mantienen las 6 tarjetas originales del dashboard.
-    //
-    // Actualmente:
-    // - Usuarios: información real
-    // - Sitios: información real
-    // - Productos: información real
-    // - Unidades de inventario: información real
-    // - Órdenes: 0 mientras no exista el módulo de pedidos
-    // - Ventas: $0 mientras no exista el módulo de ventas
-    //
-    // =========================================================
     const cards = [
-        [
-            'Users',
-            d.users
-        ],
-
-        [
-            'Sites',
-            d.sites
-        ],
-
-        [
-            'Products',
-            d.products
-        ],
-
-        [
-            'Inventory units',
-            d.inventoryUnits
-        ],
-
-        [
-            'Orders',
-            d.orders
-        ],
-
-        [
-            'Sales',
-            `$ ${Number(
-                d.sales || 0
-            ).toLocaleString('en-US')}`
-        ]
+        ['Users', d.users],
+        ['Sites', d.sites],
+        ['Products', d.products],
+        ['Inventory units', d.inventoryUnits],
+        ['Orders', d.orders],
+        ['Sales', currency(d.sales)]
     ];
 
-    // =========================================================
-    // RENDER
-    // =========================================================
+    const salesBySite = d.salesBySite || [];
+    const openOrders = d.openOrders || [];
+
+    const maxSales = Math.max(
+        1,
+        ...salesBySite.map(site => Number(site.total) || 0)
+    );
+
     return (
         <div className="page">
-
-            {/* =================================================
-                ENCABEZADO ORIGINAL
-               ================================================= */}
             <div className="page-heading">
-
                 <div>
-
-                    <h1>
-                        Panel
-                    </h1>
-
-                    <p>
-                        General overview of operation
-                    </p>
-
+                    <h1>Panel</h1>
+                    <p>General overview of operation</p>
                 </div>
-
             </div>
 
-
-            {/* =================================================
-                6 TARJETAS ORIGINALES
-               ================================================= */}
+            {/* TARJETAS SUPERIORES */}
             <div className="cards">
-
-                {cards.map(
-                    ([label, value]) => (
-
-                        <article
-                            className="metric"
-                            key={label}
-                        >
-
-                            <span>
-                                {label}
-                            </span>
-
-                            <strong>
-                                {value}
-                            </strong>
-
-                        </article>
-
-                    )
-                )}
-
+                {cards.map(([label, value]) => (
+                    <article className="metric" key={label}>
+                        <span>{label}</span>
+                        <strong>{value}</strong>
+                    </article>
+                ))}
             </div>
 
-
-            {/* =================================================
-                PARTE INFERIOR
-                =================================================
-                
-                Esta sección se agrega debajo de las tarjetas
-                originales.
-
-                Los datos de ventas y pedidos todavía no existen,
-                por lo tanto mostramos el diseño vacío.
-               ================================================= */}
+            {/* SECCIÓN INFERIOR */}
             <div className="dashboard-bottom">
 
-
-                {/* =============================================
-                    GRÁFICA DE VENTAS POR SITIO
-                   ============================================= */}
+                {/* VENTAS POR SEDE */}
                 <section className="dashboard-card">
-
                     <div className="dashboard-card-header">
-
                         <div>
-
-                            <h2>
-                                Sales by site
-                            </h2>
-
+                            <h2>Sales by site</h2>
                             <p>
-                                Sales distribution by active site
+                                Completed sales grouped by site
                             </p>
-
                         </div>
-
                     </div>
 
-
-                    {/* =========================================
-                        ÁREA DE LA GRÁFICA
-                       ========================================= */}
-                    <div className="sales-chart">
-
-                        {/* -------------------------------------
-                            EJE VERTICAL
-                           ------------------------------------- */}
-                        <div className="sales-chart-axis">
-
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                            <span></span>
-
+                    {salesBySite.length === 0 ? (
+                        <div className="dashboard-empty">
+                            No sites available.
                         </div>
-
-
-                        {/* -------------------------------------
-                            ÁREA PRINCIPAL DE LA GRÁFICA
-                           ------------------------------------- */}
-                        <div className="sales-chart-area">
-
-                            {/* Líneas horizontales */}
-
-                            <div className="sales-chart-line line-1"></div>
-
-                            <div className="sales-chart-line line-2"></div>
-
-                            <div className="sales-chart-line line-3"></div>
-
-                            <div className="sales-chart-line line-4"></div>
-
-
-                            {/* Mensaje cuando no existen datos */}
-                            <div className="sales-chart-empty">
-                                No sales data is available yet.
-                            </div>
-
+                    ) : salesBySite.every(
+                        site => Number(site.total) === 0
+                    ) ? (
+                        <div className="dashboard-empty">
+                            No completed sales are available yet.
                         </div>
+                    ) : (
+                        <div className="site-sales-list">
+                            {salesBySite.map(site => {
+                                const total = Number(site.total) || 0;
+                                const percentage =
+                                    (total / maxSales) * 100;
 
-                    </div>
+                                return (
+                                    <div
+                                        className="site-sales-item"
+                                        key={site.site_id}
+                                    >
+                                        <div className="site-sales-label">
+                                            <span title={site.site_name}>
+                                                {site.site_name}
+                                            </span>
 
+                                            <strong>
+                                                {currency(total)}
+                                            </strong>
+                                        </div>
+
+                                        <div className="site-sales-track">
+                                            <div
+                                                className="site-sales-bar"
+                                                style={{
+                                                    width: `${percentage}%`
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </section>
 
-
-                {/* =============================================
-                    PEDIDOS ABIERTOS
-                   ============================================= */}
+                {/* PEDIDOS ABIERTOS */}
                 <section className="dashboard-card">
-
                     <div className="dashboard-card-header">
-
                         <div>
-
-                            <h2>
-                                Open orders
-                            </h2>
-
-                            <p>
-                                Orders currently in progress
-                            </p>
-
+                            <h2>Open orders</h2>
+                            <p>Orders currently in progress</p>
                         </div>
-
                     </div>
 
-
-                    {/* =========================================
-                        TABLA
-                       ========================================= */}
                     <div className="orders-table-wrapper">
-
                         <table className="orders-dashboard-table">
-
                             <thead>
-
                                 <tr>
-
-                                    <th>
-                                        Order
-                                    </th>
-
-                                    <th>
-                                        Table
-                                    </th>
-
-                                    <th>
-                                        Total
-                                    </th>
-
+                                    <th>Order</th>
+                                    <th>Table</th>
+                                    <th>Total</th>
                                 </tr>
-
                             </thead>
 
-
                             <tbody>
+                                {openOrders.length === 0 ? (
+                                    <tr>
+                                        <td
+                                            colSpan="3"
+                                            className="orders-dashboard-empty"
+                                        >
+                                            There are no open orders.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    openOrders.map(order => (
+                                        <tr key={order.order_id}>
+                                            <td>
+                                                #{order.order_id}
+                                            </td>
 
-                                <tr>
+                                            <td>
+                                                {order.table_number}
+                                            </td>
 
-                                    <td
-                                        colSpan="3"
-                                        className="orders-dashboard-empty"
-                                    >
-                                        There are no open orders.
-                                    </td>
-
-                                </tr>
-
+                                            <td>
+                                                {currency(order.total)}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
-
                         </table>
-
                     </div>
 
+                    {openOrders.length > 0 && (
+                        <p className="orders-dashboard-count">
+                            Showing {openOrders.length} open order(s)
+                        </p>
+                    )}
                 </section>
-
             </div>
-
         </div>
     );
 }

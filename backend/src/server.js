@@ -17,6 +17,7 @@ app.use('/api/product-types',require('./routes/productTypeRoutes'));
 app.use('/api/inventory',require('./routes/inventoryRoutes'));
 app.use('/api/tables', require('./routes/tableRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
+app.use('/api/cash-register', require('./routes/cashRegisterRoutes'));
 app.use(require('./middleware/errorMiddleware').notFound);
 app.use(require('./middleware/errorMiddleware').errorHandler);
 

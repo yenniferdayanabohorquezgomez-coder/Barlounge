@@ -2,6 +2,7 @@
 import {
     useCallback,
     useEffect,
+    useRef,
     useState
 } from 'react';
 
@@ -135,6 +136,29 @@ export default function OrderDetail() {
     const [removingItemId, setRemovingItemId] = useState(null);
     const [savingOrder, setSavingOrder] = useState(false);
     const [cancellingOrder, setCancellingOrder] = useState(false);
+    const productsScrollerRef = useRef(null);
+    const [canScrollProductsLeft, setCanScrollProductsLeft] = useState(false);
+    const [canScrollProductsRight, setCanScrollProductsRight] = useState(false);
+
+    const updateProductsScrollButtons = useCallback(() => {
+        const element = productsScrollerRef.current;
+        if (!element) return;
+
+        setCanScrollProductsLeft(element.scrollLeft > 2);
+        setCanScrollProductsRight(
+            element.scrollLeft + element.clientWidth < element.scrollWidth - 2
+        );
+    }, []);
+
+    const scrollProducts = (direction) => {
+        const element = productsScrollerRef.current;
+        if (!element) return;
+
+        element.scrollBy({
+            left: direction * element.clientWidth * 0.8,
+            behavior: 'smooth'
+        });
+    };
 
     const mutationInProgress =
         addingProductId !== null ||
@@ -146,6 +170,22 @@ export default function OrderDetail() {
     // ========================================================
     // LOAD ORDER AND PRODUCT AVAILABILITY
     // ========================================================
+
+    useEffect(() => {
+        const element = productsScrollerRef.current;
+        if (!element) return undefined;
+
+        updateProductsScrollButtons();
+        element.addEventListener('scroll', updateProductsScrollButtons);
+
+        const resizeObserver = new ResizeObserver(updateProductsScrollButtons);
+        resizeObserver.observe(element);
+
+        return () => {
+            element.removeEventListener('scroll', updateProductsScrollButtons);
+            resizeObserver.disconnect();
+        };
+    }, [products.length, loading, updateProductsScrollButtons]);
 
     const loadData = useCallback(async (showLoader = true) => {
         if (!id || !siteId) {
@@ -740,7 +780,22 @@ export default function OrderDetail() {
                 {products.length === 0 ? (
                     <p>No active products are available.</p>
                 ) : (
-                    <div className="order-products-grid">
+                    <div className="products-carousel">
+                        <button
+                            type="button"
+                            className="carousel-arrow"
+                            onClick={() => scrollProducts(-1)}
+                            disabled={!canScrollProductsLeft}
+                            aria-label="Productos anteriores"
+                            title="Productos anteriores"
+                        >
+                            ‹
+                        </button>
+
+                        <div
+                            className="order-products-grid"
+                            ref={productsScrollerRef}
+                        >
                         {products.map((product) => {
                             const available = Number(
                                 product.available_to_add
@@ -816,6 +871,18 @@ export default function OrderDetail() {
                                 </article>
                             );
                         })}
+                        </div>
+
+                        <button
+                            type="button"
+                            className="carousel-arrow"
+                            onClick={() => scrollProducts(1)}
+                            disabled={!canScrollProductsRight}
+                            aria-label="Siguientes productos"
+                            title="Siguientes productos"
+                        >
+                            ›
+                        </button>
                     </div>
                 )}
             </section>

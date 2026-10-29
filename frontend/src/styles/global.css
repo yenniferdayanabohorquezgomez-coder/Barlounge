@@ -2081,13 +2081,25 @@ button {
 
 .tables-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-template-rows: repeat(2, auto);
+    grid-auto-columns: 220px;
     gap: 15px;
+
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 12px;
+
+    align-items: stretch;
+    scrollbar-width: thin;
 }
 
 .dining-table-card {
     display: flex;
     min-width: 0;
+    height: auto;
     flex-direction: column;
     gap: 12px;
     padding: 18px;
@@ -2095,6 +2107,7 @@ button {
     border: 1px solid var(--border);
     border-radius: 9px;
     box-shadow: var(--shadow);
+    box-sizing: border-box;
 }
 
 .dining-table-card.free {
@@ -2251,19 +2264,32 @@ button {
 
 .order-products-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-template-rows: repeat(2, auto);
+    grid-auto-columns: 220px;
     gap: 13px;
+
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 12px;
+
+    align-items: stretch;
+    scrollbar-width: thin;
 }
 
 .order-product-card {
     display: flex;
     min-width: 0;
+    height: auto;
     flex-direction: column;
     gap: 13px;
     padding: 16px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--white);
+    box-sizing: border-box;
 }
 
 .order-product-card h3 {
@@ -2397,6 +2423,362 @@ button {
 
 .order-row-actions .button.small:last-child:hover {
     background: var(--red-bg);
+}
+
+
+/* Carruseles de productos y mesas */
+.products-carousel,
+.tables-carousel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+}
+
+.order-products-grid,
+.tables-grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: auto;
+    grid-auto-columns: minmax(220px, 260px);
+    gap: 16px;
+
+    flex: 1;
+    min-width: 0;
+    width: 0;
+    max-width: 100%;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 4px 16px;
+
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    align-items: stretch;
+}
+
+.order-product-card,
+.dining-table-card {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    scroll-snap-align: start;
+}
+
+.order-product-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 18px;
+    border-radius: 12px;
+    overflow-wrap: anywhere;
+}
+
+.order-product-info h3 {
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.order-product-stock {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.product-stock-empty {
+    display: inline-block;
+    color: #b42318;
+    background: #fef3f2;
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.carousel-arrow {
+    display: flex;
+    flex: 0 0 40px;
+    align-items: center;
+    justify-content: center;
+
+    width: 40px;
+    height: 40px;
+
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--white);
+    color: var(--gold-dark, #a87920);
+
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+
+    box-shadow: var(--shadow);
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        opacity 0.2s ease,
+        transform 0.2s ease;
+}
+
+.carousel-arrow:hover:not(:disabled) {
+    background: var(--gold, #c9952e);
+    color: #fff;
+    transform: scale(1.05);
+}
+
+.carousel-arrow:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.carousel-arrow:focus-visible {
+    outline: 2px solid var(--gold, #c9952e);
+    outline-offset: 3px;
+}
+
+
+.products-carousel,
+.tables-carousel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+}
+
+.order-products-grid,
+.tables-grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(2, minmax(150px, auto));
+    grid-auto-columns: 230px;
+    align-content: start;
+    align-items: stretch;
+    gap: 14px;
+
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 4px 14px;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+}
+
+.order-product-card,
+.dining-table-card {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    scroll-snap-align: start;
+}
+
+.carousel-arrow {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--white);
+    color: var(--gold-dark, #a87920);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease,
+        opacity 0.2s ease, transform 0.2s ease;
+}
+
+.carousel-arrow-icon {
+    display: block;
+    line-height: 1;
+    font-family: Arial, sans-serif;
+    font-size: 28px;
+    font-weight: 400;
+    text-align: center;
+    transform: translateY(-1px);
+}
+
+.carousel-arrow:hover:not(:disabled) {
+    background: var(--gold, #c9952e);
+    color: #fff;
+    transform: scale(1.05);
+}
+
+.carousel-arrow:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* ==========================================
+   DASHBOARD: VENTAS POR SEDE
+   ========================================== */
+
+.site-sales-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+    max-height: 205px;
+    overflow-y: auto;
+    padding: 8px 2px;
+}
+
+.site-sales-item {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+.site-sales-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+}
+
+.site-sales-label span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+}
+
+.site-sales-label strong {
+    flex-shrink: 0;
+    color: var(--text);
+    font-size: 12px;
+}
+
+.site-sales-track {
+    width: 100%;
+    height: 10px;
+    overflow: hidden;
+    background: #eee9e1;
+    border-radius: 10px;
+}
+
+.site-sales-bar {
+    height: 100%;
+    min-width: 0;
+    background: var(--gold, #c9952e);
+    border-radius: 10px;
+    transition: width 0.4s ease;
+}
+
+.dashboard-empty {
+    min-height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--text-soft);
+    font-size: 11px;
+    padding: 16px;
+}
+
+.orders-dashboard-count {
+    margin: 12px 0 0;
+    color: var(--text-soft);
+    font-size: 10px;
+}
+
+.orders-dashboard-table tbody tr:hover {
+    background: #faf8f4;
+}
+
+.orders-dashboard-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+}
+
+.orders-dashboard-table td:last-child {
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.orders-dashboard-empty {
+    height: 120px;
+    text-align: center;
+    vertical-align: middle;
+    color: var(--text-soft);
+}
+
+/* Ajustes para pantallas pequeñas */
+@media (max-width: 900px) {
+    .dashboard-bottom {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dashboard-card {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 650px) {
+    .products-carousel,
+    .tables-carousel {
+        gap: 5px;
+    }
+
+    .carousel-arrow {
+        flex-basis: 32px;
+        width: 32px;
+        height: 32px;
+    }
+
+    .carousel-arrow-icon {
+        font-size: 24px;
+    }
+
+    .order-products-grid,
+    .tables-grid {
+        grid-auto-columns: 190px;
+        grid-template-rows: repeat(2, minmax(140px, auto));
+        gap: 10px;
+    }
+}
+
+
+@media (max-width: 650px) {
+    .products-carousel,
+    .tables-carousel {
+        gap: 6px;
+    }
+
+    .carousel-arrow {
+        flex-basis: 32px;
+        width: 32px;
+        height: 32px;
+        font-size: 23px;
+    }
+
+    .order-products-grid {
+        grid-auto-columns: 200px;
+    }
+
+    .tables-grid {
+        grid-auto-columns: 190px;
+    }
 }
 
 /* =========================================================
@@ -2573,6 +2955,10 @@ button {
 
     .data-clear-filter {
         width: 100%;
+    }
+
+    .order-products-grid {
+        grid-template-columns: minmax(0, 1fr);
     }
 
 }

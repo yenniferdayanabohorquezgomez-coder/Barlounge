@@ -435,6 +435,7 @@ async function getById(orderId, siteId) {
 // GET /api/orders/availability
 // ============================================================
 
+
 async function availability(siteId, orderId = null) {
     siteId = validateId(
         siteId,
@@ -442,10 +443,7 @@ async function availability(siteId, orderId = null) {
     );
 
     if (orderId !== null && orderId !== undefined) {
-        orderId = validateId(
-            orderId,
-            'Invalid order.'
-        );
+        orderId = validateId(orderId, 'Invalid order.');
 
         const order = await getById(orderId, siteId);
 
@@ -467,25 +465,33 @@ async function availability(siteId, orderId = null) {
             p.name,
             p.sale_unit,
             p.sale_price,
-            COALESCE(i.quantity, 0) AS stock_quantity,
+            i.quantity AS stock_quantity,
+
             COALESCE(
                 reserved.reserved_quantity,
                 0
             ) AS other_reserved_quantity,
+
             COALESCE(
                 current_item.quantity,
                 0
             ) AS current_order_quantity,
+
             GREATEST(
-                COALESCE(i.quantity, 0)
+                i.quantity
                 - COALESCE(reserved.reserved_quantity, 0)
                 - COALESCE(current_item.quantity, 0),
                 0
             ) AS available_to_add
+
         FROM products p
-        LEFT JOIN inventory i
+
+        /* Solo productos asignados al inventario de esta sede */
+        INNER JOIN inventory i
             ON i.product_id = p.product_id
-           AND i.site_id = ?
+            AND i.site_id = ?
+
+        /* Cantidades comprometidas en otros pedidos abiertos */
         LEFT JOIN (
             SELECT
                 oi.product_id,
@@ -494,18 +500,19 @@ async function availability(siteId, orderId = null) {
             INNER JOIN bar_orders bo
                 ON bo.order_id = oi.order_id
             WHERE bo.site_id = ?
-              AND bo.status = 'OPEN'
-              AND (
-                  ? IS NULL
-                  OR bo.order_id <> ?
-              )
+                AND bo.status = 'OPEN'
+                AND (? IS NULL OR bo.order_id <> ?)
             GROUP BY oi.product_id
         ) reserved
             ON reserved.product_id = p.product_id
+
+        /* Cantidad que ya está en el pedido actual */
         LEFT JOIN bar_order_items current_item
             ON current_item.product_id = p.product_id
-           AND current_item.order_id = ?
+            AND current_item.order_id = ?
+
         WHERE p.status = 'ACTIVE'
+        
         ORDER BY p.name ASC
         `,
         [

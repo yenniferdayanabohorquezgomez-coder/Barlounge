@@ -65,6 +65,13 @@ const links = [
             ].includes(u.role)
     ],
 
+    [
+        'Cash Register',
+        '/cashier/orders',
+        (u) =>
+            ['Administrador', 'Cajero'].includes(u.role)
+    ],
+
     // Administrador y Cajero.
     [
         'Inventory',
