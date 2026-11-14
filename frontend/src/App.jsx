@@ -32,6 +32,7 @@ import Products from './pages/Products';
 import ProductTypes from './pages/ProductTypes';
 import RecoverPassword from './pages/RecoverPassword';
 import Reports from './pages/Reports';
+import SecurityStatus from './pages/SecurityStatus';
 import Sites from './pages/Sites';
 import Suppliers from './pages/Suppliers';
 import Tables from './pages/Tables';
@@ -72,6 +73,10 @@ export default function App() {
                             <Route
                                 path="/audit-logs"
                                 element={<AuditLogs />}
+                            />
+                            <Route
+                                path="/security"
+                                element={<SecurityStatus />}
                             />
                             <Route
                                 path="/reports"

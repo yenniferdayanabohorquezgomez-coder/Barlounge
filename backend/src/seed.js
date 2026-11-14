@@ -6,57 +6,63 @@ const pool = require('./config/db');
 // ============================================================
 // PERMISSIONS USED BY THE CURRENT ROUTES
 // ============================================================
+    const permissions = [
+        // Dashboard and audit
+        ['DASHBOARD_READ', 'View dashboard'],
+        ['AUDIT_READ', 'View system audit history'],
+        ['REPORTS_READ', 'View sales, inventory and best-selling product reports'],
 
-const permissions = [
-    ['DASHBOARD_READ', 'View dashboard'],
-    ['AUDIT_READ', 'View system audit history'],
-    ['USERS_READ', 'List users'],
-    ['USERS_CREATE', 'Create users'],
-    ['USERS_UPDATE', 'Update users'],
-    ['REPORTS_READ', 'View reports'],
-    ['AUDIT_READ', 'View audit history'],
-    ['SITES_READ', 'List sites'],
-    ['SITES_CREATE', 'Create sites'],
-    ['SITES_UPDATE', 'Update sites'],
+        // Users
+        ['USERS_READ', 'List users'],
+        ['USERS_CREATE', 'Create users'],
+        ['USERS_UPDATE', 'Update users'],
 
-    ['PRODUCTS_READ', 'List products'],
-    ['PRODUCTS_CREATE', 'Create products'],
-    ['PRODUCTS_UPDATE', 'Update products'],
+        // Sites
+        ['SITES_READ', 'List sites'],
+        ['SITES_CREATE', 'Create sites'],
+        ['SITES_UPDATE', 'Update sites'],
 
-    [
-        'PRODUCT_ASSIGNMENT_READ',
-        'View products assigned to sites'
-    ],
-    [
-        'PRODUCT_ASSIGNMENT_CREATE',
-        'Assign catalog products to sites'
-    ],
-    [
-        'PRODUCT_ASSIGNMENT_DELETE',
-        'Remove products from site assignments'
-    ],
+        // Products
+        ['PRODUCTS_READ', 'List products'],
+        ['PRODUCTS_CREATE', 'Create products'],
+        ['PRODUCTS_UPDATE', 'Update products'],
 
-    ['SUPPLIERS_READ', 'List suppliers'],
-    ['SUPPLIERS_CREATE', 'Create suppliers'],
-    ['SUPPLIERS_UPDATE', 'Update suppliers'],
+        // Product assignments
+        ['PRODUCT_ASSIGNMENT_READ', 'View products assigned to sites'],
+        ['PRODUCT_ASSIGNMENT_CREATE', 'Assign catalog products to sites'],
+        ['PRODUCT_ASSIGNMENT_DELETE', 'Remove products from site assignments'],
 
-    ['PRODUCT_TYPES_READ', 'List product types'],
-    ['PRODUCT_TYPES_CREATE', 'Create product types'],
-    ['PRODUCT_TYPES_UPDATE', 'Update product types'],
+        // Suppliers
+        ['SUPPLIERS_READ', 'List suppliers'],
+        ['SUPPLIERS_CREATE', 'Create suppliers'],
+        ['SUPPLIERS_UPDATE', 'Update suppliers'],
 
-    ['INVENTORY_READ', 'View inventory'],
-    ['INVENTORY_INCREMENT', 'Increment inventory'],
+        // Product types
+        ['PRODUCT_TYPES_READ', 'List product types'],
+        ['PRODUCT_TYPES_CREATE', 'Create product types'],
+        ['PRODUCT_TYPES_UPDATE', 'Update product types'],
 
-    ['TABLES_READ', 'View tables'],
+        // Inventory
+        ['INVENTORY_READ', 'View inventory'],
+        ['INVENTORY_INCREMENT', 'Increment inventory'],
 
-    ['ORDERS_READ', 'View orders'],
-    ['ORDERS_CREATE', 'Create orders'],
-    ['ORDERS_UPDATE', 'Update orders'],
-    ['ORDERS_REMOVE_ITEM', 'Remove items from orders'],
-    ['ORDERS_SAVE', 'Save orders'],
-    ['ORDERS_CANCEL', 'Cancel orders']
-    ['REPORTS_READ', 'View sales, inventory and best-selling product reports'],
-];
+        // Tables
+        ['TABLES_READ', 'View tables'],
+
+        // Orders
+        ['ORDERS_READ', 'View orders'],
+        ['ORDERS_CREATE', 'Create orders'],
+        ['ORDERS_UPDATE', 'Update orders'],
+        ['ORDERS_REMOVE_ITEM', 'Remove items from orders'],
+        ['ORDERS_SAVE', 'Save orders'],
+        ['ORDERS_CANCEL', 'Cancel orders'],
+
+        // Cash register
+        ['PAYMENTS_CREATE', 'Process payments'],
+        ['INVOICES_READ', 'View and print invoices'],
+
+        ['SECURITY_READ', 'View security controls and active sessions']
+    ];
 
 // ============================================================
 // ROLES
@@ -366,7 +372,6 @@ async function seed() {
     // --------------------------------------------------------
     // 5. Assign permissions to other roles
     // --------------------------------------------------------
-
     const rolePermissionNames = {
         Mesero: [
             'DASHBOARD_READ',
@@ -384,19 +389,26 @@ async function seed() {
             'DASHBOARD_READ',
             'PRODUCTS_READ',
             'INVENTORY_READ',
-            'INVENTORY_INCREMENT'
+            'INVENTORY_INCREMENT',
+            'ORDERS_READ',
+            'PAYMENTS_CREATE',
+            'INVOICES_READ'
         ]
     };
 
-    const roleIds = {
-        Mesero: waiter.role_id,
-        Cajero: cashier.role_id
-    };
 
-    for (const [roleName, names] of Object.entries(
+    // --------------------------------------------------------
+    // 5.1 Assign permissions to Waiter and Cashier
+    // --------------------------------------------------------
+    for (const [roleName, permissionNames] of Object.entries(
         rolePermissionNames
     )) {
-        for (const permissionName of names) {
+        const roleId =
+            roleName === 'Mesero'
+                ? waiter.role_id
+                : cashier.role_id;
+
+        for (const permissionName of permissionNames) {
             const [[permission]] = await pool.query(
                 `
                 SELECT permission_id
@@ -408,21 +420,22 @@ async function seed() {
                 [permissionName]
             );
 
-            if (permission) {
-                await pool.query(
-                    `
-                    INSERT IGNORE INTO role_permissions (
-                        role_id,
-                        permission_id
-                    )
-                    VALUES (?, ?)
-                    `,
-                    [
-                        roleIds[roleName],
-                        permission.permission_id
-                    ]
+            if (!permission) {
+                throw new Error(
+                    `Permission not found: ${permissionName}`
                 );
             }
+
+            await pool.query(
+                `
+                INSERT IGNORE INTO role_permissions (
+                    role_id,
+                    permission_id
+                )
+                VALUES (?, ?)
+                `,
+                [roleId, permission.permission_id]
+            );
         }
     }
 

@@ -20,6 +20,7 @@ app.use('/api/tables', require('./routes/tableRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/cash-register', require('./routes/cashRegisterRoutes'));
 app.use('/api/audit', require('./routes/auditRoutes'));
+app.use('/api/security', require('./routes/securityRoutes'));
 app.use(require('./middleware/errorMiddleware').notFound);
 app.use(require('./middleware/errorMiddleware').errorHandler);
 

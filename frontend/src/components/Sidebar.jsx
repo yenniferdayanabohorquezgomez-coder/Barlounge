@@ -19,6 +19,12 @@ const links = [
         '/audit-logs',
         (u) => u.role === 'Administrador'
     ],
+
+    [
+        'Security & Sessions',
+        '/security',
+        (u) => u.role === 'Administrador'
+    ],
     
     [
         'Reports',
