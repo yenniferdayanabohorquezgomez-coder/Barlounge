@@ -9,11 +9,12 @@ const pool = require('./config/db');
 
 const permissions = [
     ['DASHBOARD_READ', 'View dashboard'],
-
+    ['AUDIT_READ', 'View system audit history'],
     ['USERS_READ', 'List users'],
     ['USERS_CREATE', 'Create users'],
     ['USERS_UPDATE', 'Update users'],
-
+    ['REPORTS_READ', 'View reports'],
+    ['AUDIT_READ', 'View audit history'],
     ['SITES_READ', 'List sites'],
     ['SITES_CREATE', 'Create sites'],
     ['SITES_UPDATE', 'Update sites'],
@@ -54,6 +55,7 @@ const permissions = [
     ['ORDERS_REMOVE_ITEM', 'Remove items from orders'],
     ['ORDERS_SAVE', 'Save orders'],
     ['ORDERS_CANCEL', 'Cancel orders']
+    ['REPORTS_READ', 'View sales, inventory and best-selling product reports'],
 ];
 
 // ============================================================

@@ -2723,6 +2723,69 @@ button {
     color: var(--text-soft);
 }
 
+/* =========================================================
+   PRODUCTS - BUSQUEDA GENERAL Y RECURSIVA
+   ========================================================= */
+
+.products-filter-panel .product-search-controls {
+    display: grid;
+    grid-template-columns:
+        minmax(115px, 0.9fr)
+        minmax(160px, 1.4fr);
+    gap: 8px;
+    min-width: 0;
+}
+
+.products-filter-panel .product-search-control {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.products-filter-panel .product-search-control label {
+    color: var(--text-soft);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.products-filter-panel .product-search-control input,
+.products-filter-panel .product-search-control select {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid #dcd6ce;
+    border-radius: 5px;
+    background: var(--white);
+    color: var(--text);
+    font-size: 11px;
+    outline: none;
+}
+
+.products-filter-panel .product-search-control input:focus,
+.products-filter-panel .product-search-control select:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(199, 146, 37, 0.10);
+}
+
+@media (max-width: 850px) {
+    .products-filter-panel .product-search-controls {
+        grid-template-columns:
+            minmax(120px, 0.8fr)
+            minmax(180px, 1.2fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .products-filter-panel .product-search-controls {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Ajustes para pantallas pequeñas */
 @media (max-width: 900px) {
     .dashboard-bottom {

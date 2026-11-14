@@ -1,5 +1,8 @@
 const router = require('express').Router();
 const c = require('../controllers/authController');
+const {
+    requireAuth
+} = require('../middleware/authMiddleware');
 
 // ============================================================
 // LOGIN
@@ -7,6 +10,12 @@ const c = require('../controllers/authController');
 router.post(
     '/login',
     c.login
+);
+
+router.post(
+    '/logout',
+    requireAuth,
+    c.logout
 );
 
 // ============================================================

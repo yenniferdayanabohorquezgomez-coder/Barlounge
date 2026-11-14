@@ -726,11 +726,11 @@ export default function CashierOrders() {
                                                     disabled={processingPayment}
                                                 >
                                                     <option value="">Select document type</option>
-                                                    <option value="CC">Cédula de ciudadanía</option>
-                                                    <option value="CE">Cédula de extranjería</option>
-                                                    <option value="NIT">NIT</option>
-                                                    <option value="PASSPORT">Pasaporte</option>
-                                                    <option value="OTHER">Otro</option>
+                                                    <option value="CC">National ID card</option>
+                                                    <option value="CE">Foreign resident ID</option>
+                                                    <option value="NIT">Tax identification number (NIT)</option>
+                                                    <option value="PASSPORT">Passport</option>
+                                                    <option value="OTHER">Other</option>
                                                 </select>
                                             </div>
 

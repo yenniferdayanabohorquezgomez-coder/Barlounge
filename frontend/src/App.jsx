@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import { AuthProvider } from './context/AuthContext';
 
+import AuditLogs from './pages/AuditLogs';
 import CashierOrders from './pages/CashierOrders';
 import Dashboard from './pages/Dashboard';
 import EditProduct from './pages/EditProduct';
@@ -30,6 +31,7 @@ import ProductAssignments from './pages/ProductAssignments';
 import Products from './pages/Products';
 import ProductTypes from './pages/ProductTypes';
 import RecoverPassword from './pages/RecoverPassword';
+import Reports from './pages/Reports';
 import Sites from './pages/Sites';
 import Suppliers from './pages/Suppliers';
 import Tables from './pages/Tables';
@@ -67,6 +69,14 @@ export default function App() {
                                 />
                             }
                         >
+                            <Route
+                                path="/audit-logs"
+                                element={<AuditLogs />}
+                            />
+                            <Route
+                                path="/reports"
+                                element={<Reports />}
+                            />
                             <Route
                                 path="/users"
                                 element={<Users />}

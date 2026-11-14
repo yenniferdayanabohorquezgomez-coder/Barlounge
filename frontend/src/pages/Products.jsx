@@ -3,6 +3,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getProducts } from '../services/productService';
+import {
+    recursiveProductSearch
+} from '../utils/recursiveProductSearch';
 import { selectionSort } from '../utils/selectionSort';
 
 function formatPrice(value) {
@@ -18,6 +21,7 @@ export default function Products() {
     const [loading, setLoading] = useState(true);
 
     const [search, setSearch] = useState('');
+    const [searchMode, setSearchMode] = useState('all');
     const [typeFilter, setTypeFilter] = useState('');
     const [supplierFilter, setSupplierFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
@@ -26,6 +30,11 @@ export default function Products() {
     // LOAD PRODUCTS
     // ========================================================
 
+    const productsSortedByCode = useMemo(
+        () => selectionSort(rows, 'code'),
+        [rows]
+    );
+    
     useEffect(() => {
         let active = true;
 
@@ -105,33 +114,60 @@ export default function Products() {
     const filteredRows = useMemo(() => {
         const text = search.trim().toLowerCase();
 
-        return rows.filter((product) => {
-            const searchableValues = [
-                product.code,
-                product.name,
-                product.product_type,
-                product.supplier,
-                product.purchase_unit,
-                product.sale_unit,
-                product.purchase_price,
-                product.sale_price,
-                product.status
-            ];
+        let candidates = rows;
 
-            const matchesSearch =
-                !text ||
-                searchableValues
+        // ====================================================
+        // MODO 1: BÚSQUEDA RECURSIVA POR CÓDIGO EXACTO
+        // ====================================================
+
+        if (searchMode === 'code' && text) {
+            const foundProduct = recursiveProductSearch(
+                productsSortedByCode,
+                text
+            );
+
+            candidates = foundProduct
+                ? [foundProduct]
+                : [];
+        }
+
+        // ====================================================
+        // MODO 2: BÚSQUEDA GENERAL
+        // ====================================================
+
+        if (searchMode === 'all' && text) {
+            candidates = rows.filter(product => {
+                const searchableValues = [
+                    product.code,
+                    product.name,
+                    product.product_type,
+                    product.supplier,
+                    product.purchase_unit,
+                    product.sale_unit,
+                    product.purchase_price,
+                    product.sale_price,
+                    product.status
+                ];
+
+                return searchableValues
                     .filter(
-                        (value) =>
+                        value =>
                             value !== null &&
                             value !== undefined
                     )
-                    .some((value) =>
+                    .some(value =>
                         String(value)
                             .toLowerCase()
                             .includes(text)
                     );
+            });
+        }
 
+        // ====================================================
+        // APLICAR LOS FILTROS EXISTENTES
+        // ====================================================
+
+        return candidates.filter(product => {
             const matchesType =
                 !typeFilter ||
                 product.product_type === typeFilter;
@@ -145,15 +181,17 @@ export default function Products() {
                 product.status === statusFilter;
 
             return (
-                matchesSearch &&
                 matchesType &&
                 matchesSupplier &&
                 matchesStatus
             );
         });
+
     }, [
         rows,
+        productsSortedByCode,
         search,
+        searchMode,
         typeFilter,
         supplierFilter,
         statusFilter
@@ -165,6 +203,7 @@ export default function Products() {
 
     function clearFilters() {
         setSearch('');
+        setSearchMode('all');
         setTypeFilter('');
         setSupplierFilter('');
         setStatusFilter('');
@@ -204,17 +243,52 @@ export default function Products() {
 
             <div className="data-filter-panel products-filter-panel">
                 <div className="data-filter-field search-field">
-                    <label htmlFor="product-search">
-                        Search
-                    </label>
+                    <div className="product-search-controls">
 
-                    <input
-                        id="product-search"
-                        type="text"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search by code, name, type, supplier, unit or price"
-                    />
+                        <div className="product-search-control">
+                            <label htmlFor="product-search-mode">
+                                Search mode
+                            </label>
+
+                            <select
+                                id="product-search-mode"
+                                value={searchMode}
+                                onChange={event => {
+                                    setSearchMode(event.target.value);
+                                    setSearch('');
+                                }}
+                            >
+                                <option value="all">
+                                    General search
+                                </option>
+
+                                <option value="code">
+                                    Exact code (recursive)
+                                </option>
+                            </select>
+                        </div>
+
+                        <div className="product-search-control">
+                            <label htmlFor="product-search">
+                                Search product
+                            </label>
+
+                            <input
+                                id="product-search"
+                                type="text"
+                                value={search}
+                                onChange={event =>
+                                    setSearch(event.target.value)
+                                }
+                                placeholder={
+                                    searchMode === 'code'
+                                        ? 'Enter exact product code'
+                                        : 'Search by code, name, type, supplier or price'
+                                }
+                            />
+                        </div>
+
+                    </div>
                 </div>
 
                 <div className="data-filter-field">

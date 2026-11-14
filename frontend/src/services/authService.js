@@ -56,3 +56,8 @@ export const resetPassword = (
             newPassword
         })
         .then(r => r.data);
+
+export const logout = () =>
+    api
+        .post('/auth/logout')
+        .then(response => response.data);

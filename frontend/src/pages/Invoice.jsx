@@ -1,8 +1,10 @@
+
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import '../styles/Invoice.css';
 
+// Currency formatting
 const formatMoney = (value) =>
     new Intl.NumberFormat('es-CO', {
         style: 'currency',
@@ -10,6 +12,7 @@ const formatMoney = (value) =>
         maximumFractionDigits: 2
     }).format(Number(value) || 0);
 
+// Date formatting in English
 const formatDate = (value) => {
     if (!value) return '—';
 
@@ -17,24 +20,31 @@ const formatDate = (value) => {
 
     if (Number.isNaN(date.getTime())) return '—';
 
-    return date.toLocaleString('es-CO', {
+    return date.toLocaleString('en-US', {
         dateStyle: 'medium',
         timeStyle: 'short'
     });
 };
 
+// Payment methods translated for display
 const paymentLabels = {
-    CASH: 'Efectivo',
-    CREDIT_CARD: 'Tarjeta de crédito',
-    DEBIT_CARD: 'Tarjeta débito'
+    CASH: 'Cash',
+    CREDIT_CARD: 'Credit card',
+    DEBIT_CARD: 'Debit card'
 };
 
+// Document types translated for display
 const documentLabels = {
-    CC: 'Cédula de ciudadanía',
-    CE: 'Cédula de extranjería',
-    NIT: 'NIT',
-    PASSPORT: 'Pasaporte',
-    OTHER: 'Otro'
+    CC: 'National ID card',
+    CE: 'Foreign resident ID',
+    NIT: 'Tax identification number (NIT)',
+    PASSPORT: 'Passport',
+    OTHER: 'Other',
+
+    'Cédula de ciudadanía': 'National ID card',
+    'Cédula de extranjería': 'Foreign resident ID',
+    'Pasaporte': 'Passport',
+    'Otro': 'Other'
 };
 
 export default function Invoice() {
@@ -69,7 +79,7 @@ export default function Invoice() {
                 if (active) {
                     setError(
                         err.response?.data?.message ||
-                        'No fue posible cargar la factura.'
+                        'Unable to load the invoice.'
                     );
                 }
             } finally {
@@ -89,7 +99,7 @@ export default function Invoice() {
     if (loading) {
         return (
             <main className="invoice-page">
-                <p>Cargando factura...</p>
+                <p>Loading invoice...</p>
             </main>
         );
     }
@@ -98,7 +108,7 @@ export default function Invoice() {
         return (
             <main className="invoice-page">
                 <div className="invoice-alert">
-                    {error || 'No se encontró la factura.'}
+                    {error || 'Invoice not found.'}
                 </div>
 
                 <button
@@ -106,24 +116,35 @@ export default function Invoice() {
                     className="invoice-button no-print"
                     onClick={() => window.history.back()}
                 >
-                    Volver
+                    Back
                 </button>
             </main>
         );
     }
 
     const isCash = invoice.payment_method === 'CASH';
-    const items = Array.isArray(invoice.items) ? invoice.items : [];
+
+    const items = Array.isArray(invoice.items)
+        ? invoice.items
+        : [];
+
+    const buyerDocumentType =
+        documentLabels[invoice.buyer_document_type] ||
+        invoice.buyer_document_type ||
+        '—';
 
     return (
         <main className="invoice-page">
+
+            {/* ACTIONS - NOT PRINTED */}
+
             <div className="invoice-actions no-print">
                 <button
                     type="button"
                     className="invoice-button"
                     onClick={() => window.history.back()}
                 >
-                    Volver
+                    Back
                 </button>
 
                 <button
@@ -131,22 +152,27 @@ export default function Invoice() {
                     className="invoice-button primary"
                     onClick={() => window.print()}
                 >
-                    Imprimir factura
+                    Print invoice
                 </button>
             </div>
 
+            {/* PRINTABLE INVOICE */}
+
             <article className="invoice-paper">
+
+                {/* BUSINESS INFORMATION */}
+
                 <header className="invoice-header">
                     <img
                         src="/barlounge-logo.png"
-                        alt="Logo de BARLOUNGE"
+                        alt="BARLOUNGE logo"
                         className="invoice-logo"
                     />
 
                     <h1>BARLOUNGE</h1>
 
                     <p className="invoice-subtitle">
-                        COMPROBANTE INTERNO DE VENTA
+                        INTERNAL SALES RECEIPT
                     </p>
 
                     <p>
@@ -159,54 +185,73 @@ export default function Invoice() {
                     </p>
 
                     <p>
-                        NIT: {invoice.seller_tax_id_snapshot ||
+                        Tax ID (NIT):{' '}
+                        {invoice.seller_tax_id_snapshot ||
                             invoice.seller_tax_id ||
-                            'NIT-DEMO-NO-VALIDO'}
+                            'NIT-DEMO-NO-VALID'}
                     </p>
 
-                    <p>{invoice.seller_address || invoice.site_address || 'Dirección no configurada'}</p>
+                    <p>
+                        {invoice.seller_address ||
+                            invoice.site_address ||
+                            'Address not configured'}
+                    </p>
 
                     {invoice.tax_regime && (
-                        <p>Régimen tributario: {invoice.tax_regime}</p>
+                        <p>
+                            Tax regime: {invoice.tax_regime}
+                        </p>
                     )}
 
                     <p className="invoice-demo-warning">
-                        DOCUMENTO DE DEMOSTRACIÓN ACADÉMICA — NO VÁLIDO COMO FACTURA FISCAL
+                        ACADEMIC DEMONSTRATION DOCUMENT — NOT VALID AS A TAX INVOICE
                     </p>
                 </header>
 
+                {/* INVOICE NUMBER */}
+
                 <section className="invoice-number">
                     <div>
-                        <span>Número interno</span>
+                        <span>Internal invoice number</span>
                         <strong>{invoice.invoice_number}</strong>
                     </div>
 
                     <div>
-                        <span>Numeración autorizada por la DIAN</span>
+                        <span>DIAN authorized numbering</span>
+
                         <strong>
-                            {invoice.authorization_number || 'NO CONFIGURADA'}
+                            {invoice.authorization_number ||
+                                'NOT CONFIGURED'}
                         </strong>
                     </div>
                 </section>
 
+                {/* TRANSACTION INFORMATION */}
+
                 <section className="invoice-information">
                     <div>
-                        <span>Fecha</span>
-                        <strong>{formatDate(invoice.issued_at)}</strong>
+                        <span>Date</span>
+                        <strong>
+                            {formatDate(invoice.issued_at)}
+                        </strong>
                     </div>
 
                     <div>
-                        <span>Cuenta</span>
-                        <strong>#{invoice.order_id}</strong>
+                        <span>Order</span>
+                        <strong>
+                            #{invoice.order_id}
+                        </strong>
                     </div>
 
                     <div>
-                        <span>Cajero</span>
-                        <strong>{invoice.cashier_name || '—'}</strong>
+                        <span>Cashier</span>
+                        <strong>
+                            {invoice.cashier_name || '—'}
+                        </strong>
                     </div>
 
                     <div>
-                        <span>Medio de pago</span>
+                        <span>Payment method</span>
                         <strong>
                             {paymentLabels[invoice.payment_method] ||
                                 invoice.payment_method ||
@@ -215,35 +260,37 @@ export default function Invoice() {
                     </div>
                 </section>
 
+                {/* CUSTOMER INFORMATION */}
+
                 <section className="invoice-customer">
-                    <h2>Datos del comprador</h2>
+                    <h2>Customer information</h2>
 
                     <p>
-                        <strong>Nombre o razón social:</strong>{' '}
-                        {invoice.buyer_name || 'Consumidor no identificado'}
+                        <strong>Name or business name:</strong>{' '}
+                        {invoice.buyer_name || 'Unidentified consumer'}
                     </p>
 
                     <p>
-                        <strong>Tipo de documento:</strong>{' '}
-                        {documentLabels[invoice.buyer_document_type] ||
-                            invoice.buyer_document_type ||
-                            '—'}
+                        <strong>Document type:</strong>{' '}
+                        {buyerDocumentType}
                     </p>
 
                     <p>
-                        <strong>Número de documento:</strong>{' '}
+                        <strong>Document number:</strong>{' '}
                         {invoice.buyer_document || '—'}
                     </p>
                 </section>
+
+                {/* PRODUCTS TABLE */}
 
                 <div className="invoice-table-wrapper">
                     <table className="invoice-table">
                         <thead>
                             <tr>
-                                <th>Código</th>
-                                <th>Producto</th>
-                                <th className="number">Cant.</th>
-                                <th className="number">Valor unitario</th>
+                                <th>Code</th>
+                                <th>Product</th>
+                                <th className="number">Quantity</th>
+                                <th className="number">Unit price</th>
                                 <th className="number">Total</th>
                             </tr>
                         </thead>
@@ -251,14 +298,22 @@ export default function Invoice() {
                         <tbody>
                             {items.map((item) => (
                                 <tr key={item.invoice_item_id}>
-                                    <td>{item.product_code || '—'}</td>
-                                    <td>{item.product_name}</td>
+                                    <td>
+                                        {item.product_code || '—'}
+                                    </td>
+
+                                    <td>
+                                        {item.product_name}
+                                    </td>
+
                                     <td className="number">
                                         {Number(item.quantity)}
                                     </td>
+
                                     <td className="number">
                                         {formatMoney(item.unit_price)}
                                     </td>
+
                                     <td className="number">
                                         {formatMoney(item.line_total)}
                                     </td>
@@ -268,7 +323,7 @@ export default function Invoice() {
                             {items.length === 0 && (
                                 <tr>
                                     <td colSpan={5}>
-                                        No hay productos registrados.
+                                        No products registered.
                                     </td>
                                 </tr>
                             )}
@@ -276,15 +331,21 @@ export default function Invoice() {
                     </table>
                 </div>
 
+                {/* TOTALS */}
+
                 <section className="invoice-totals">
                     <div>
                         <span>Subtotal</span>
-                        <strong>{formatMoney(invoice.subtotal)}</strong>
+                        <strong>
+                            {formatMoney(invoice.subtotal)}
+                        </strong>
                     </div>
 
                     <div>
-                        <span>Impuestos</span>
-                        <strong>{formatMoney(invoice.tax_amount)}</strong>
+                        <span>Taxes</span>
+                        <strong>
+                            {formatMoney(invoice.tax_amount)}
+                        </strong>
                     </div>
 
                     {invoice.tax_description && (
@@ -294,21 +355,23 @@ export default function Invoice() {
                     )}
 
                     <div className="invoice-grand-total">
-                        <span>Total pagado</span>
-                        <strong>{formatMoney(invoice.total)}</strong>
+                        <span>Total paid</span>
+                        <strong>
+                            {formatMoney(invoice.total)}
+                        </strong>
                     </div>
 
                     {isCash && (
                         <>
                             <div>
-                                <span>Efectivo recibido</span>
+                                <span>Cash received</span>
                                 <strong>
                                     {formatMoney(invoice.cash_received)}
                                 </strong>
                             </div>
 
                             <div>
-                                <span>Cambio entregado</span>
+                                <span>Change returned</span>
                                 <strong>
                                     {formatMoney(invoice.change_amount)}
                                 </strong>
@@ -317,15 +380,20 @@ export default function Invoice() {
                     )}
                 </section>
 
+                {/* FOOTER */}
+
                 <footer className="invoice-footer">
-                    <p>Gracias por visitar BARLOUNGE.</p>
+                    <p>
+                        Thank you for visiting BARLOUNGE!
+                    </p>
 
                     <p className="invoice-legal-note">
-                        Comprobante interno de venta. Este documento no
-                        acredita por sí solo el cumplimiento de las
-                        obligaciones de facturación tributaria.
+                        Internal sales receipt. This document does not
+                        independently certify compliance with tax invoicing
+                        requirements.
                     </p>
                 </footer>
+
             </article>
         </main>
     );

@@ -13,6 +13,18 @@ const links = [
         '/dashboard',
         () => true
     ],
+    
+    [
+        'Audit Logs',
+        '/audit-logs',
+        (u) => u.role === 'Administrador'
+    ],
+    
+    [
+        'Reports',
+        '/reports',
+        (u) => u.role === 'Administrador'
+    ],
 
     // Solo Administrador.
     [

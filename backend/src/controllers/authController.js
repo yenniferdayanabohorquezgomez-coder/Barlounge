@@ -206,11 +206,28 @@ async function reset(
     }
 }
 
+async function logout(req, res, next) {
+    try {
+        await service.logout(
+            req.authSessionId,
+            req.user.user_id
+        );
+
+        res.json({
+            message: 'Session closed successfully.'
+        });
+
+    } catch (error) {
+        next(error);
+    }
+}
+
 // ============================================================
 // EXPORTACIONES
 // ============================================================
 module.exports = {
     login,
+    logout,
     recover,
     verifyRecoveryCode,
     reset

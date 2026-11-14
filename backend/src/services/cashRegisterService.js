@@ -1,6 +1,9 @@
 const pool = require('../config/db');
 const audit = require('./auditService');
-
+const {
+    encryptSensitiveText,
+    decryptSensitiveText
+} = require('../utils/fieldEncryption');
 const {
     calculateOrderTotals
 } = require('../utils/iterativoOrderTotals');
@@ -203,8 +206,10 @@ async function processPayment(
                 oi.product_id,
                 oi.quantity,
                 oi.unit_price,
+                oi.created_at AS requested_at,
                 p.code,
-                p.name AS product_name
+                p.name AS product_name,
+                p.purchase_price
             FROM bar_order_items oi
             INNER JOIN products p
                 ON p.product_id = oi.product_id
@@ -283,7 +288,7 @@ async function processPayment(
                 SELECT inventory_id, quantity
                 FROM inventory
                 WHERE site_id = ?
-                  AND product_id = ?
+                    AND product_id = ?
                 LIMIT 1
                 FOR UPDATE
                 `,
@@ -403,7 +408,7 @@ async function processPayment(
             UPDATE invoice_sequences
             SET next_number = next_number + 1
             WHERE site_id = ?
-              AND next_number = ?
+                AND next_number = ?
             `,
             [siteId, sequenceNumber]
         );
@@ -447,10 +452,15 @@ async function processPayment(
 
         const site = siteRows[0];
 
+        const encryptedBuyerName =
+            encryptSensitiveText(buyerName);
+
+        const encryptedBuyerDocument =
+            encryptSensitiveText(buyerDocument);
+
         // Registrar el comprobante interno y conservar los datos del vendedor.
         const [invoiceResult] = await connection.query(
-            `
-            INSERT INTO invoices (
+            `INSERT INTO invoices (
                 invoice_number,
                 order_id,
                 payment_id,
@@ -460,6 +470,8 @@ async function processPayment(
                 buyer_name,
                 buyer_document_type,
                 buyer_document,
+                buyer_name_encrypted,
+                buyer_document_encrypted,
                 tax_amount,
                 tax_description,
                 payment_form,
@@ -469,7 +481,13 @@ async function processPayment(
                 printer_name_snapshot,
                 printer_tax_id_snapshot
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (
+                ?, ?, ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?,
+                ?, ?, ?,
+                ?, ?, ?, ?, ?
+            )
             `,
             [
                 invoiceNumber,
@@ -478,12 +496,23 @@ async function processPayment(
                 siteId,
                 total,
                 total,
-                buyerName,
+
+                // Los datos personales no se guardan en texto legible.
+                null,
                 buyerDocumentType,
-                buyerDocument,
+                null,
+
+                // Se guardan los valores cifrados.
+                encryptedBuyerName,
+                encryptedBuyerDocument,
+
+                // Conservamos la configuración tributaria actual.
                 0,
                 'Impuestos no configurados para esta demostración académica',
-                paymentMethod === 'CASH' ? 'Contado' : 'Pago electrónico',
+                paymentMethod === 'CASH'
+                    ? 'Contado'
+                    : 'Pago electrónico',
+
                 site.legal_name || site.name,
                 site.tax_id || 'NIT-DEMO-NO-VALIDO',
                 site.address,
@@ -494,10 +523,11 @@ async function processPayment(
 
         const invoiceId = invoiceResult.insertId;
 
-        // Save a snapshot of each item for the printed invoice.
+        // Guardar la información histórica de cada producto facturado.
         for (const item of items) {
             const quantity = Number(item.quantity);
             const unitPrice = money(item.unit_price);
+            const purchasePrice = money(item.purchase_price);
 
             await connection.query(
                 `
@@ -506,19 +536,23 @@ async function processPayment(
                     product_id,
                     product_code,
                     product_name,
+                    requested_at,
                     quantity,
                     unit_price,
+                    purchase_price,
                     line_total
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `,
                 [
                     invoiceId,
                     item.product_id,
                     item.code,
                     item.product_name,
+                    item.requested_at,
                     quantity,
                     unitPrice,
+                    purchasePrice,
                     money(quantity * unitPrice)
                 ]
             );
@@ -631,6 +665,8 @@ async function getInvoice(invoiceId, siteId, actorId, isAdmin) {
             i.buyer_name,
             i.buyer_document_type,
             i.buyer_document,
+            i.buyer_name_encrypted,
+            i.buyer_document_encrypted,
             i.seller_legal_name AS seller_legal_name_snapshot,
             i.seller_tax_id AS seller_tax_id_snapshot,
             i.seller_address,
@@ -683,6 +719,26 @@ async function getInvoice(invoiceId, siteId, actorId, isAdmin) {
     }
 
     const invoice = rows[0];
+
+    // ========================================================
+    // DESCIFRAR DATOS DEL COMPRADOR
+    // ========================================================
+
+    // Las facturas nuevas utilizan AES-256-GCM.
+    // Las antiguas conservan compatibilidad.
+    invoice.buyer_name =
+        invoice.buyer_name_encrypted
+            ? decryptSensitiveText(invoice.buyer_name_encrypted)
+            : invoice.buyer_name;
+
+    invoice.buyer_document =
+        invoice.buyer_document_encrypted
+            ? decryptSensitiveText(invoice.buyer_document_encrypted)
+            : invoice.buyer_document;
+
+    // No enviar los campos cifrados al frontend.
+    delete invoice.buyer_name_encrypted;
+    delete invoice.buyer_document_encrypted;
 
     const [items] = await pool.query(
         `

@@ -1,7 +1,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-
+const { randomUUID } = require('crypto');
+const sessionCrypto = require('crypto');
 const pool = require('../config/db');
 const {
     sendRecoveryCode
@@ -23,16 +24,17 @@ const {
 // ============================================================
 // TOKEN NORMAL DE LOGIN
 // ============================================================
-function tokenFor(user) {
-
+function tokenFor(user, sessionId) {
     return jwt.sign(
         {
-            userId: user.user_id
+            userId: user.user_id,
+            sid: sessionId,
+            purpose: 'access'
         },
         process.env.JWT_SECRET,
         {
             expiresIn:
-                process.env.JWT_EXPIRES_IN || '15m'
+                process.env.JWT_EXPIRES_IN || '8h'
         }
     );
 }
@@ -71,31 +73,29 @@ function hashRecoveryCode(code) {
 // ============================================================
 // LOGIN
 // ============================================================
-async function login(
-    code,
-    password
-) {
-
-    const [rows] =
-        await pool.query(`
-            SELECT
-                u.user_id,
-                u.code,
-                u.name,
-                u.password_hash,
-                u.role_id,
-                u.site_id,
-                u.status,
-                r.name AS role_name,
-                s.name AS site_name
-            FROM users u
-            INNER JOIN roles r
-                ON r.role_id = u.role_id
-            INNER JOIN sites s
-                ON s.site_id = u.site_id
-            WHERE u.code = ?
-            LIMIT 1
-        `, [code]);
+async function login(code, password) {
+    const [rows] = await pool.query(
+        `
+        SELECT
+            u.user_id,
+            u.code,
+            u.name,
+            u.password_hash,
+            u.role_id,
+            u.site_id,
+            u.status,
+            r.name AS role_name,
+            s.name AS site_name
+        FROM users u
+        INNER JOIN roles r
+            ON r.role_id = u.role_id
+        INNER JOIN sites s
+            ON s.site_id = u.site_id
+        WHERE u.code = ?
+        LIMIT 1
+        `,
+        [code]
+    );
 
     if (
         !rows.length ||
@@ -104,32 +104,142 @@ async function login(
         return null;
     }
 
-    const valid =
-        await bcrypt.compare(
-            password,
-            rows[0].password_hash
-        );
+    const valid = await bcrypt.compare(
+        password,
+        rows[0].password_hash
+    );
 
     if (!valid) {
         return null;
     }
 
-    const u = rows[0];
+    const user = rows[0];
+    const sessionId = sessionCrypto.randomUUID();
+
+    const connection = await pool.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        // Revocar sesiones anteriores del usuario.
+        await connection.query(
+            `
+            UPDATE auth_sessions
+            SET revoked_at = CURRENT_TIMESTAMP
+            WHERE user_id = ?
+                AND revoked_at IS NULL
+            `,
+            [user.user_id]
+        );
+
+        // Registrar la nueva sesión.
+        await connection.query(
+            `
+            INSERT INTO auth_sessions (
+                session_id,
+                user_id,
+                last_activity,
+                expires_at
+            )
+            VALUES (
+                ?,
+                ?,
+                CURRENT_TIMESTAMP,
+                DATE_ADD(
+                    CURRENT_TIMESTAMP,
+                    INTERVAL 8 HOUR
+                )
+            )
+            `,
+            [
+                sessionId,
+                user.user_id
+            ]
+        );
+
+        await connection.commit();
+
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+
+    } finally {
+        connection.release();
+    }
+
+    // Registrar el inicio de sesión en auditoría.
+    try {
+        const audit = require('./auditService');
+
+        await audit.log({
+            userId: user.user_id,
+            action: 'LOGIN',
+            entity: 'AUTH',
+            entityId: user.user_id,
+            result: 'SUCCESS'
+        });
+    } catch (error) {
+        console.error(
+            '[BARLOUNGE] Login audit failed:',
+            error
+        );
+    }
 
     return {
-
-        token: tokenFor(u),
+        token: tokenFor(user, sessionId),
 
         user: {
-            userId: u.user_id,
-            code: u.code,
-            name: u.name,
-            roleId: u.role_id,
-            role: u.role_name,
-            siteId: u.site_id,
-            siteName: u.site_name
+            userId: user.user_id,
+            code: user.code,
+            name: user.name,
+            roleId: user.role_id,
+            role: user.role_name,
+            siteId: user.site_id,
+            siteName: user.site_name
         }
     };
+}
+
+async function logout(sessionId, userId) {
+    if (!sessionId || !userId) {
+        return false;
+    }
+
+    const [result] = await pool.query(
+        `
+        UPDATE auth_sessions
+        SET revoked_at = CURRENT_TIMESTAMP
+        WHERE session_id = ?
+            AND user_id = ?
+            AND revoked_at IS NULL
+        `,
+        [
+            sessionId,
+            userId
+        ]
+    );
+    if (result.affectedRows > 0) {
+        try {
+            const audit = require('./auditService');
+
+            await audit.log({
+                userId,
+                action: 'LOGOUT',
+                entity: 'AUTH',
+                entityId: userId,
+                result: 'SUCCESS'
+            });
+        } catch (error) {
+            console.error(
+                '[BARLOUNGE] Logout audit failed:',
+                error
+            );
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 // ============================================================
@@ -425,6 +535,7 @@ async function resetPassword(
 // ============================================================
 module.exports = {
     login,
+    logout,
     startRecovery,
     verifyRecoveryCode,
     resetPassword
