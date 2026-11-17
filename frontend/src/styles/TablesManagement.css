@@ -21,3 +21,29 @@
     font-size: 0.88rem;
     opacity: 0.75;
 }
+
+
+/* CREATE TABLE */
+
+.table-create-label {
+    display: block;
+    margin: 18px 0 7px;
+    font-weight: 600;
+}
+
+.table-confirm-modal input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 11px 12px;
+    border: 1px solid var(--border-color, #d1d5db);
+    border-radius: 8px;
+    background: var(--input-background, #fff);
+    color: var(--text-primary, #1f2937);
+    font: inherit;
+}
+
+.table-create-help {
+    margin-top: 8px;
+    font-size: 0.88rem;
+    opacity: 0.75;
+}

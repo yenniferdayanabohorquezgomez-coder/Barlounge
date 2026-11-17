@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+
 import {
     useLocation,
     useNavigate,
@@ -23,9 +24,7 @@ function normalizeStatus(table) {
 }
 
 function normalizeTableList(response) {
-    if (Array.isArray(response)) {
-        return response;
-    }
+    if (Array.isArray(response)) return response;
 
     if (Array.isArray(response?.tables)) {
         return response.tables;
@@ -61,6 +60,7 @@ function getErrorMessage(error) {
 
 export default function Tables() {
     const { user } = useAuth();
+
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams] = useSearchParams();
@@ -71,7 +71,23 @@ export default function Tables() {
         user?.siteId ?? user?.site_id ?? ''
     );
 
-    const role = String(user?.role || '')
+    // --------------------------------------------------------
+    // IDENTIFY USER ROLE
+    // --------------------------------------------------------
+
+    const rawRole =
+        user?.role ||
+        user?.role_name ||
+        user?.roleName ||
+        user?.rol ||
+        user?.role?.name ||
+        '';
+
+    const role = String(
+        typeof rawRole === 'object'
+            ? rawRole?.name || rawRole?.role_name || ''
+            : rawRole
+    )
         .trim()
         .toLowerCase();
 
@@ -81,43 +97,58 @@ export default function Tables() {
         'admin'
     ].includes(role);
 
-    // ========================================================
+    // --------------------------------------------------------
     // STATE
-    // ========================================================
+    // --------------------------------------------------------
 
     const [sites, setSites] = useState([]);
 
     const [siteId, setSiteId] = useState(
-        requestedSiteId ||
-        (isAdmin ? '' : assignedSiteId)
+        requestedSiteId || (isAdmin ? '' : assignedSiteId)
     );
 
     const [tables, setTables] = useState([]);
+
     const [loading, setLoading] = useState(false);
     const [loadingSites, setLoadingSites] = useState(isAdmin);
+
     const [showCreateTable, setShowCreateTable] = useState(false);
     const [newTableNumber, setNewTableNumber] = useState('');
     const [creatingTable, setCreatingTable] = useState(false);
+
     const [busyTableId, setBusyTableId] = useState(null);
     const [selectedTable, setSelectedTable] = useState(null);
+
     const [error, setError] = useState('');
 
     const tablesScrollerRef = useRef(null);
-    const [canScrollTablesLeft, setCanScrollTablesLeft] = useState(false);
-    const [canScrollTablesRight, setCanScrollTablesRight] = useState(false);
+
+    const [canScrollTablesLeft, setCanScrollTablesLeft] =
+        useState(false);
+
+    const [canScrollTablesRight, setCanScrollTablesRight] =
+        useState(false);
+
+    // --------------------------------------------------------
+    // TABLE SCROLL
+    // --------------------------------------------------------
 
     const updateTablesScrollButtons = useCallback(() => {
         const element = tablesScrollerRef.current;
+
         if (!element) return;
 
         setCanScrollTablesLeft(element.scrollLeft > 2);
+
         setCanScrollTablesRight(
-            element.scrollLeft + element.clientWidth < element.scrollWidth - 2
+            element.scrollLeft + element.clientWidth <
+            element.scrollWidth - 2
         );
     }, []);
 
     const scrollTables = (direction) => {
         const element = tablesScrollerRef.current;
+
         if (!element) return;
 
         element.scrollBy({
@@ -126,26 +157,42 @@ export default function Tables() {
         });
     };
 
-
     useEffect(() => {
         const element = tablesScrollerRef.current;
+
         if (!element) return undefined;
 
         updateTablesScrollButtons();
-        element.addEventListener('scroll', updateTablesScrollButtons);
 
-        const resizeObserver = new ResizeObserver(updateTablesScrollButtons);
+        element.addEventListener(
+            'scroll',
+            updateTablesScrollButtons
+        );
+
+        const resizeObserver = new ResizeObserver(
+            updateTablesScrollButtons
+        );
+
         resizeObserver.observe(element);
 
         return () => {
-            element.removeEventListener('scroll', updateTablesScrollButtons);
+            element.removeEventListener(
+                'scroll',
+                updateTablesScrollButtons
+            );
+
             resizeObserver.disconnect();
         };
-    }, [tables.length, loading, loadingSites, updateTablesScrollButtons]);
+    }, [
+        tables.length,
+        loading,
+        loadingSites,
+        updateTablesScrollButtons
+    ]);
 
-    // ========================================================
+    // --------------------------------------------------------
     // LOAD SITES
-    // ========================================================
+    // --------------------------------------------------------
 
     useEffect(() => {
         if (!isAdmin) {
@@ -195,7 +242,7 @@ export default function Tables() {
                         activeSites.some(
                             (site) =>
                                 String(site.site_id) ===
-                                requestedSiteId
+                                String(requestedSiteId)
                         )
                     ) {
                         return requestedSiteId;
@@ -221,9 +268,9 @@ export default function Tables() {
         };
     }, [isAdmin, requestedSiteId]);
 
-    // ========================================================
-    // LOAD TABLES WHEN ENTERING THE PAGE OR CHANGING SITES
-    // ========================================================
+    // --------------------------------------------------------
+    // LOAD TABLES
+    // --------------------------------------------------------
 
     useEffect(() => {
         const effectiveSiteId = isAdmin
@@ -259,15 +306,12 @@ export default function Tables() {
                     data
                 );
 
-                // This single list drives both the counters
-                // and the rendered table cards.
                 setTables(data);
             })
             .catch((e) => {
                 if (!active) return;
 
                 console.error('Error loading tables:', e);
-
                 setError(getErrorMessage(e));
             })
             .finally(() => {
@@ -284,9 +328,9 @@ export default function Tables() {
         location.key
     ]);
 
-    // ========================================================
+    // --------------------------------------------------------
     // TABLE COUNTERS
-    // ========================================================
+    // --------------------------------------------------------
 
     const tableRows = Array.isArray(tables)
         ? tables
@@ -306,57 +350,66 @@ export default function Tables() {
         (table) => normalizeStatus(table) === 'UNAVAILABLE'
     ).length;
 
+    // --------------------------------------------------------
+    // CREATE TABLE
+    // --------------------------------------------------------
+
     async function handleCreateTable(event) {
-    event.preventDefault();
+        event.preventDefault();
 
-    const tableNumber = newTableNumber.trim();
+        const tableNumber = newTableNumber.trim();
 
-    if (!siteId) {
-        setError('Select a site before creating a table.');
-        return;
+        if (!siteId) {
+            setError('Select a site before creating a table.');
+            return;
+        }
+
+        if (!tableNumber || tableNumber.length > 10) {
+            setError(
+                'Enter a table number with a maximum of 10 characters.'
+            );
+            return;
+        }
+
+        setCreatingTable(true);
+        setError('');
+
+        try {
+            await createTable(
+                Number(siteId),
+                tableNumber
+            );
+
+            const response = await getTables(siteId);
+
+            const updatedTables = normalizeTableList(response);
+
+            if (updatedTables === null) {
+                throw new Error(
+                    'The table was created, but the table list could not be refreshed.'
+                );
+            }
+
+            setTables(updatedTables);
+            setNewTableNumber('');
+            setShowCreateTable(false);
+
+            showFlash(
+                'success',
+                `Table ${tableNumber} created successfully.`
+            );
+        } catch (error) {
+            console.error('Error creating table:', error);
+
+            setError(getErrorMessage(error));
+        } finally {
+            setCreatingTable(false);
+        }
     }
 
-    if (!tableNumber || tableNumber.length > 10) {
-        setError('Enter a table number with a maximum of 10 characters.');
-        return;
-    }
-
-    setCreatingTable(true);
-    setError('');
-
-    try {
-        await createTable(Number(siteId), tableNumber);
-
-        const response = await getTables(siteId);
-
-        const updatedTables = Array.isArray(response)
-            ? response
-            : response?.tables || response?.data || [];
-
-        setTables(updatedTables);
-        setNewTableNumber('');
-        setShowCreateTable(false);
-
-        showFlash(
-            'success',
-            `Table ${tableNumber} created successfully.`
-        );
-    } catch (error) {
-        console.error('Error creating table:', error);
-
-        setError(
-            error.response?.data?.message ||
-            error.message ||
-            'The table could not be created.'
-        );
-    } finally {
-        setCreatingTable(false);
-    }
-}
-
-    // ========================================================
-    // REFRESH TABLES AFTER AN ERROR
-    // ========================================================
+    // --------------------------------------------------------
+    // REFRESH TABLES
+    // --------------------------------------------------------
 
     async function refreshTables() {
         const effectiveSiteId = isAdmin
@@ -369,6 +422,7 @@ export default function Tables() {
         }
 
         const response = await getTables(effectiveSiteId);
+
         const data = normalizeTableList(response);
 
         if (data === null) {
@@ -380,38 +434,37 @@ export default function Tables() {
         setTables(data);
     }
 
-    // ========================================================
-    // SELECT A TABLE
-    // ========================================================
+    // --------------------------------------------------------
+    // SELECT TABLE
+    // --------------------------------------------------------
 
     function handleTableAction(table) {
         setError('');
 
         const status = normalizeStatus(table);
 
-        // Open an existing order for an occupied table.
         if (status === 'OCCUPIED' && table.order_id) {
             navigate(
                 `/orders/${table.order_id}?siteId=${siteId}`
             );
+
             return;
         }
 
-        // Only free tables can start a new order.
         if (status !== 'FREE') {
             setError(
                 'This table is not available for a new order.'
             );
+
             return;
         }
 
-        // Ask for confirmation before creating the order.
         setSelectedTable(table);
     }
 
-    // ========================================================
+    // --------------------------------------------------------
     // CONFIRM AND CREATE ORDER
-    // ========================================================
+    // --------------------------------------------------------
 
     async function handleConfirmStartOrder() {
         if (!selectedTable || busyTableId !== null) {
@@ -453,7 +506,6 @@ export default function Tables() {
             setError(getErrorMessage(e));
             setSelectedTable(null);
 
-            // Refresh the table list without blocking the UI.
             refreshTables().catch((refreshError) => {
                 console.error(
                     'Error refreshing tables:',
@@ -465,39 +517,44 @@ export default function Tables() {
         }
     }
 
-    // ========================================================
+    // --------------------------------------------------------
     // USER INTERFACE
-    // Keep this page in English and prevent browser translation
-    // from modifying React-managed DOM nodes.
-    // ========================================================
+    // --------------------------------------------------------
 
     return (
         <div
             className="page notranslate"
             translate="no"
         >
+
             {/* PAGE HEADING */}
 
             <div className="page-heading">
                 <div>
                     <h1>Tables</h1>
-                    {isAdmin && (
-    <button
-        type="button"
-        className="button primary"
-        disabled={!siteId || loadingSites || creatingTable}
-        onClick={() => {
-            setError('');
-            setShowCreateTable(true);
-        }}
-    >
-        + Create table
-    </button>
-)}
+
                     <p>
                         Check table availability and manage open orders.
                     </p>
                 </div>
+
+                {isAdmin && (
+                    <button
+                        type="button"
+                        className="button primary"
+                        disabled={
+                            !siteId ||
+                            loadingSites ||
+                            creatingTable
+                        }
+                        onClick={() => {
+                            setError('');
+                            setShowCreateTable(true);
+                        }}
+                    >
+                        + Create table
+                    </button>
+                )}
             </div>
 
             {/* ERROR MESSAGE */}
@@ -607,6 +664,7 @@ export default function Tables() {
                 /* TABLE CARDS */
 
                 <div className="tables-carousel">
+
                     <button
                         type="button"
                         className="carousel-arrow"
@@ -623,91 +681,91 @@ export default function Tables() {
                         translate="no"
                         ref={tablesScrollerRef}
                     >
-                    {tableRows.map((table) => {
-                        const status = normalizeStatus(table);
+                        {tableRows.map((table) => {
+                            const status = normalizeStatus(table);
 
-                        const isFree = status === 'FREE';
-                        const isOccupied = status === 'OCCUPIED';
+                            const isFree = status === 'FREE';
+                            const isOccupied = status === 'OCCUPIED';
 
-                        const hasOrder = Boolean(table.order_id);
+                            const hasOrder = Boolean(table.order_id);
 
-                        const isProcessing =
-                            String(busyTableId) ===
-                            String(table.table_id);
+                            const isProcessing =
+                                String(busyTableId) ===
+                                String(table.table_id);
 
-                        const disabled =
-                            busyTableId !== null ||
-                            status === 'UNAVAILABLE' ||
-                            (isOccupied && !hasOrder);
+                            const disabled =
+                                busyTableId !== null ||
+                                status === 'UNAVAILABLE' ||
+                                (isOccupied && !hasOrder);
 
-                        let actionText = 'Unavailable';
+                            let actionText = 'Unavailable';
 
-                        if (isProcessing) {
-                            actionText = 'Processing...';
-                        } else if (isFree) {
-                            actionText = 'Start order';
-                        } else if (isOccupied && hasOrder) {
-                            actionText = 'View order';
-                        }
+                            if (isProcessing) {
+                                actionText = 'Processing...';
+                            } else if (isFree) {
+                                actionText = 'Start order';
+                            } else if (isOccupied && hasOrder) {
+                                actionText = 'View order';
+                            }
 
-                        const statusLabel = isFree
-                            ? 'Free'
-                            : isOccupied
-                                ? 'Occupied'
-                                : 'Unavailable';
+                            const statusLabel = isFree
+                                ? 'Free'
+                                : isOccupied
+                                    ? 'Occupied'
+                                    : 'Unavailable';
 
-                        return (
-                            <article
-                                key={table.table_id}
-                                className={
-                                    `dining-table-card ${status.toLowerCase()}`
-                                }
-                            >
-                                <div className="dining-table-top">
-                                    <span className="dining-table-label">
-                                        TABLE
-                                    </span>
-
-                                    <span
-                                        className={
-                                            `table-status ${status.toLowerCase()}`
-                                        }
-                                    >
-                                        {statusLabel}
-                                    </span>
-                                </div>
-
-                                <h2>
-                                    Table {table.table_number}
-                                </h2>
-
-                                <p>
-                                    {table.site || user?.siteName}
-                                </p>
-
-                                {isOccupied && hasOrder && (
-                                    <p className="dining-order-reference">
-                                        Open order #{table.order_id}
-                                    </p>
-                                )}
-
-                                <button
-                                    type="button"
+                            return (
+                                <article
+                                    key={table.table_id}
                                     className={
-                                        isFree
-                                            ? 'button primary'
-                                            : 'button ghost'
-                                    }
-                                    disabled={disabled}
-                                    onClick={() =>
-                                        handleTableAction(table)
+                                        `dining-table-card ${status.toLowerCase()}`
                                     }
                                 >
-                                    {actionText}
-                                </button>
-                            </article>
-                        );
-                    })}
+                                    <div className="dining-table-top">
+                                        <span className="dining-table-label">
+                                            TABLE
+                                        </span>
+
+                                        <span
+                                            className={
+                                                `table-status ${status.toLowerCase()}`
+                                            }
+                                        >
+                                            {statusLabel}
+                                        </span>
+                                    </div>
+
+                                    <h2>
+                                        Table {table.table_number}
+                                    </h2>
+
+                                    <p>
+                                        {table.site || user?.siteName}
+                                    </p>
+
+                                    {isOccupied && hasOrder && (
+                                        <p className="dining-order-reference">
+                                            Open order #{table.order_id}
+                                        </p>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        className={
+                                            isFree
+                                                ? 'button primary'
+                                                : 'button ghost'
+                                        }
+                                        disabled={disabled}
+                                        onClick={() =>
+                                            handleTableAction(table)
+                                        }
+                                    >
+                                        {actionText}
+                                    </button>
+                                </article>
+                            );
+                        })}
                     </div>
 
                     <button
@@ -723,93 +781,102 @@ export default function Tables() {
                 </div>
             )}
 
+            {/* CREATE TABLE MODAL */}
+
             {showCreateTable && (
-    <div
-        className="table-confirm-backdrop notranslate"
-        translate="no"
-        onMouseDown={(event) => {
-            if (
-                event.target === event.currentTarget &&
-                !creatingTable
-            ) {
-                setShowCreateTable(false);
-            }
-        }}
-    >
-        <form
-            className="table-confirm-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-table-title"
-            onSubmit={handleCreateTable}
-        >
-            <span className="dining-table-label">
-                NEW TABLE
-            </span>
-
-            <h2 id="create-table-title">
-                Create a table
-            </h2>
-
-            <p>
-                Site:{' '}
-                <strong>
-                    {sites.find(
-                        (site) =>
-                            String(site.site_id) === String(siteId)
-                    )?.name || user?.siteName || 'Assigned site'}
-                </strong>
-            </p>
-
-            <label
-                className="table-create-label"
-                htmlFor="new-table-number"
-            >
-                Table number
-            </label>
-
-            <input
-                id="new-table-number"
-                type="text"
-                value={newTableNumber}
-                onChange={(event) =>
-                    setNewTableNumber(event.target.value)
-                }
-                maxLength={10}
-                placeholder="For example: 01"
-                required
-                autoFocus
-                disabled={creatingTable}
-            />
-
-            <p className="table-create-help">
-                The new table will be created with status Free.
-            </p>
-
-            <div className="table-confirm-actions">
-                <button
-                    type="button"
-                    className="button ghost"
-                    disabled={creatingTable}
-                    onClick={() => setShowCreateTable(false)}
+                <div
+                    className="table-confirm-backdrop notranslate"
+                    translate="no"
+                    onMouseDown={(event) => {
+                        if (
+                            event.target === event.currentTarget &&
+                            !creatingTable
+                        ) {
+                            setShowCreateTable(false);
+                        }
+                    }}
                 >
-                    Cancel
-                </button>
+                    <form
+                        className="table-confirm-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="create-table-title"
+                        onSubmit={handleCreateTable}
+                    >
+                        <span className="dining-table-label">
+                            NEW TABLE
+                        </span>
 
-                <button
-                    type="submit"
-                    className="button primary"
-                    disabled={
-                        creatingTable ||
-                        !newTableNumber.trim()
-                    }
-                >
-                    {creatingTable ? 'Creating...' : 'Create table'}
-                </button>
-            </div>
-        </form>
-    </div>
-)}
+                        <h2 id="create-table-title">
+                            Create a table
+                        </h2>
+
+                        <p>
+                            Site:{' '}
+                            <strong>
+                                {sites.find(
+                                    (site) =>
+                                        String(site.site_id) ===
+                                        String(siteId)
+                                )?.name ||
+                                    user?.siteName ||
+                                    'Assigned site'}
+                            </strong>
+                        </p>
+
+                        <label
+                            className="table-create-label"
+                            htmlFor="new-table-number"
+                        >
+                            Table number
+                        </label>
+
+                        <input
+                            id="new-table-number"
+                            type="text"
+                            value={newTableNumber}
+                            onChange={(event) =>
+                                setNewTableNumber(event.target.value)
+                            }
+                            maxLength={10}
+                            placeholder="For example: 01"
+                            required
+                            autoFocus
+                            disabled={creatingTable}
+                        />
+
+                        <p className="table-create-help">
+                            The new table will be created with status Free.
+                        </p>
+
+                        <div className="table-confirm-actions">
+                            <button
+                                type="button"
+                                className="button ghost"
+                                disabled={creatingTable}
+                                onClick={() =>
+                                    setShowCreateTable(false)
+                                }
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="submit"
+                                className="button primary"
+                                disabled={
+                                    creatingTable ||
+                                    !newTableNumber.trim()
+                                }
+                            >
+                                {creatingTable
+                                    ? 'Creating...'
+                                    : 'Create table'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
 
             {/* ORDER CONFIRMATION MODAL */}
 
@@ -854,7 +921,9 @@ export default function Tables() {
                                 type="button"
                                 className="button ghost"
                                 disabled={busyTableId !== null}
-                                onClick={() => setSelectedTable(null)}
+                                onClick={() =>
+                                    setSelectedTable(null)
+                                }
                             >
                                 Cancel
                             </button>
@@ -873,6 +942,7 @@ export default function Tables() {
                     </div>
                 </div>
             )}
+
         </div>
     );
 }
