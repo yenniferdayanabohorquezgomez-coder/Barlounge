@@ -1,4 +1,47 @@
-const RESEND_API_URL = 'https://api.resend.com/emails';
+
+const { google } = require('googleapis');
+
+// ============================================================
+// CONFIGURACIÓN DE GMAIL API
+// ============================================================
+
+function createGmailClient() {
+    const {
+        GMAIL_CLIENT_ID,
+        GMAIL_CLIENT_SECRET,
+        GMAIL_REFRESH_TOKEN,
+        GMAIL_USER
+    } = process.env;
+
+    if (
+        !GMAIL_CLIENT_ID ||
+        !GMAIL_CLIENT_SECRET ||
+        !GMAIL_REFRESH_TOKEN ||
+        !GMAIL_USER
+    ) {
+        throw new Error(
+            'Faltan variables de configuración de Gmail API en Railway.'
+        );
+    }
+
+    const auth = new google.auth.OAuth2(
+        GMAIL_CLIENT_ID,
+        GMAIL_CLIENT_SECRET
+    );
+
+    auth.setCredentials({
+        refresh_token: GMAIL_REFRESH_TOKEN
+    });
+
+    return google.gmail({
+        version: 'v1',
+        auth
+    });
+}
+
+// ============================================================
+// PROTEGER CONTENIDO HTML
+// ============================================================
 
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (character) => {
@@ -14,41 +57,23 @@ function escapeHtml(value) {
     });
 }
 
-async function sendRecoveryCode(
+// ============================================================
+// CONSTRUIR CORREO
+// ============================================================
+
+function createEmailMessage(
     email,
     name,
     recoveryCode,
     expirationMinutes
 ) {
-    const apiKey = process.env.RESEND_API_KEY;
+    const sender = process.env.GMAIL_USER;
 
-    if (!apiKey) {
-        throw new Error(
-            'RESEND_API_KEY no está configurada en las variables del backend.'
-        );
-    }
-
-    const recipient = String(email ?? '').trim();
-
-    if (!recipient) {
-        throw new Error(
-            'No se puede enviar el código de recuperación: el usuario no tiene correo registrado.'
-        );
-    }
-
-    // Para pruebas iniciales puede utilizarse onboarding@resend.dev.
-    // Para enviar a los usuarios reales, configura EMAIL_FROM con un
-    // remitente perteneciente a un dominio verificado en Resend.
-    const sender =
-        process.env.EMAIL_FROM || 'BARLOUNGE <onboarding@resend.dev>';
-
-    const displayName = name || 'usuario';
-    const safeName = escapeHtml(displayName);
+    const safeName = escapeHtml(name || 'usuario');
     const safeCode = escapeHtml(recoveryCode);
-    const minutes = Number(expirationMinutes);
 
     const text = `
-Hola ${displayName},
+Hola ${name || 'usuario'},
 
 Recibimos una solicitud para recuperar tu contraseña de BARLOUNGE.
 
@@ -66,50 +91,122 @@ BARLOUNGE
     const html = `
         <div style="font-family: Arial, sans-serif; color: #222; line-height: 1.5;">
             <h2>BARLOUNGE</h2>
+
             <p>Hola <strong>${safeName}</strong>,</p>
-            <p>Recibimos una solicitud para recuperar tu contraseña.</p>
+
+            <p>
+                Recibimos una solicitud para recuperar
+                tu contraseña.
+            </p>
+
             <p>Tu código de verificación es:</p>
-            <h1 style="letter-spacing: 6px;">${safeCode}</h1>
-            <p>Este código vence en <strong>${minutes} minutos</strong>.</p>
-            <p>Si no solicitaste este cambio, puedes ignorar este mensaje.</p>
+
+            <h1 style="letter-spacing: 6px;">
+                ${safeCode}
+            </h1>
+
+            <p>
+                Este código vence en
+                <strong>${Number(expirationMinutes)} minutos</strong>.
+            </p>
+
+            <p>
+                Si no solicitaste este cambio,
+                puedes ignorar este mensaje.
+            </p>
+
             <p>BARLOUNGE</p>
         </div>
     `;
 
-    const response = await fetch(RESEND_API_URL, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            from: sender,
-            to: [recipient],
-            subject: 'BARLOUNGE - Código de recuperación',
-            text,
-            html
-        })
-    });
+    const boundary = `barlounge_${Date.now()}`;
 
-    const responseText = await response.text();
-    let result = {};
+    const mimeMessage = [
+        `From: BARLOUNGE <${sender}>`,
+        `To: ${email}`,
+        'Subject: BARLOUNGE - Código de recuperación',
+        'MIME-Version: 1.0',
+        `Content-Type: multipart/alternative; boundary="${boundary}"`,
+        '',
+        `--${boundary}`,
+        'Content-Type: text/plain; charset="UTF-8"',
+        'Content-Transfer-Encoding: base64',
+        '',
+        Buffer.from(text, 'utf8').toString('base64'),
+        '',
+        `--${boundary}`,
+        'Content-Type: text/html; charset="UTF-8"',
+        'Content-Transfer-Encoding: base64',
+        '',
+        Buffer.from(html, 'utf8').toString('base64'),
+        '',
+        `--${boundary}--`
+    ].join('\r\n');
 
-    try {
-        result = responseText ? JSON.parse(responseText) : {};
-    } catch {
-        result = { message: responseText };
-    }
+    return Buffer.from(mimeMessage, 'utf8')
+        .toString('base64url');
+}
 
-    if (!response.ok) {
-        const reason =
-            result.message || result.name || responseText || 'Error desconocido';
+// ============================================================
+// ENVIAR CÓDIGO DE RECUPERACIÓN
+// ============================================================
 
+async function sendRecoveryCode(
+    email,
+    name,
+    recoveryCode,
+    expirationMinutes
+) {
+    const recipient = String(email || '').trim();
+
+    if (
+        !recipient ||
+        /[\r\n]/.test(recipient) ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)
+    ) {
         throw new Error(
-            `Resend rechazó el envío (HTTP ${response.status}): ${reason}`
+            'La dirección de correo del destinatario no es válida.'
         );
     }
 
-    return result;
+    const gmail = createGmailClient();
+
+    const rawMessage = createEmailMessage(
+        recipient,
+        name,
+        recoveryCode,
+        expirationMinutes
+    );
+
+    try {
+        const response = await gmail.users.messages.send({
+            userId: 'me',
+            requestBody: {
+                raw: rawMessage
+            }
+        });
+
+        console.log(
+            '[BARLOUNGE] Correo de recuperación enviado correctamente.'
+        );
+
+        return response.data;
+
+    } catch (error) {
+        const message =
+            error.response?.data?.error?.message ||
+            error.message ||
+            'Error desconocido';
+
+        console.error(
+            '[BARLOUNGE] Error enviando correo mediante Gmail API:',
+            message
+        );
+
+        throw new Error(
+            `No fue posible enviar el correo de recuperación: ${message}`
+        );
+    }
 }
 
 module.exports = {
