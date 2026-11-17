@@ -9,7 +9,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { createOrder } from '../services/orderService';
 import { getSites } from '../services/siteService';
-import { getTables } from '../services/tableService';
+import { createTable, getTables } from '../services/tableService';
 import { showFlash } from '../utils/flashMessage';
 
 // ============================================================
@@ -95,7 +95,9 @@ export default function Tables() {
     const [tables, setTables] = useState([]);
     const [loading, setLoading] = useState(false);
     const [loadingSites, setLoadingSites] = useState(isAdmin);
-
+    const [showCreateTable, setShowCreateTable] = useState(false);
+    const [newTableNumber, setNewTableNumber] = useState('');
+    const [creatingTable, setCreatingTable] = useState(false);
     const [busyTableId, setBusyTableId] = useState(null);
     const [selectedTable, setSelectedTable] = useState(null);
     const [error, setError] = useState('');
@@ -304,6 +306,54 @@ export default function Tables() {
         (table) => normalizeStatus(table) === 'UNAVAILABLE'
     ).length;
 
+    async function handleCreateTable(event) {
+    event.preventDefault();
+
+    const tableNumber = newTableNumber.trim();
+
+    if (!siteId) {
+        setError('Select a site before creating a table.');
+        return;
+    }
+
+    if (!tableNumber || tableNumber.length > 10) {
+        setError('Enter a table number with a maximum of 10 characters.');
+        return;
+    }
+
+    setCreatingTable(true);
+    setError('');
+
+    try {
+        await createTable(Number(siteId), tableNumber);
+
+        const response = await getTables(siteId);
+
+        const updatedTables = Array.isArray(response)
+            ? response
+            : response?.tables || response?.data || [];
+
+        setTables(updatedTables);
+        setNewTableNumber('');
+        setShowCreateTable(false);
+
+        showFlash(
+            'success',
+            `Table ${tableNumber} created successfully.`
+        );
+    } catch (error) {
+        console.error('Error creating table:', error);
+
+        setError(
+            error.response?.data?.message ||
+            error.message ||
+            'The table could not be created.'
+        );
+    } finally {
+        setCreatingTable(false);
+    }
+}
+
     // ========================================================
     // REFRESH TABLES AFTER AN ERROR
     // ========================================================
@@ -431,7 +481,19 @@ export default function Tables() {
             <div className="page-heading">
                 <div>
                     <h1>Tables</h1>
-
+                    {isAdmin && (
+    <button
+        type="button"
+        className="button primary"
+        disabled={!siteId || loadingSites || creatingTable}
+        onClick={() => {
+            setError('');
+            setShowCreateTable(true);
+        }}
+    >
+        + Create table
+    </button>
+)}
                     <p>
                         Check table availability and manage open orders.
                     </p>
@@ -660,6 +722,94 @@ export default function Tables() {
                     </button>
                 </div>
             )}
+
+            {showCreateTable && (
+    <div
+        className="table-confirm-backdrop notranslate"
+        translate="no"
+        onMouseDown={(event) => {
+            if (
+                event.target === event.currentTarget &&
+                !creatingTable
+            ) {
+                setShowCreateTable(false);
+            }
+        }}
+    >
+        <form
+            className="table-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-table-title"
+            onSubmit={handleCreateTable}
+        >
+            <span className="dining-table-label">
+                NEW TABLE
+            </span>
+
+            <h2 id="create-table-title">
+                Create a table
+            </h2>
+
+            <p>
+                Site:{' '}
+                <strong>
+                    {sites.find(
+                        (site) =>
+                            String(site.site_id) === String(siteId)
+                    )?.name || user?.siteName || 'Assigned site'}
+                </strong>
+            </p>
+
+            <label
+                className="table-create-label"
+                htmlFor="new-table-number"
+            >
+                Table number
+            </label>
+
+            <input
+                id="new-table-number"
+                type="text"
+                value={newTableNumber}
+                onChange={(event) =>
+                    setNewTableNumber(event.target.value)
+                }
+                maxLength={10}
+                placeholder="For example: 01"
+                required
+                autoFocus
+                disabled={creatingTable}
+            />
+
+            <p className="table-create-help">
+                The new table will be created with status Free.
+            </p>
+
+            <div className="table-confirm-actions">
+                <button
+                    type="button"
+                    className="button ghost"
+                    disabled={creatingTable}
+                    onClick={() => setShowCreateTable(false)}
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="submit"
+                    className="button primary"
+                    disabled={
+                        creatingTable ||
+                        !newTableNumber.trim()
+                    }
+                >
+                    {creatingTable ? 'Creating...' : 'Create table'}
+                </button>
+            </div>
+        </form>
+    </div>
+)}
 
             {/* ORDER CONFIRMATION MODAL */}
 

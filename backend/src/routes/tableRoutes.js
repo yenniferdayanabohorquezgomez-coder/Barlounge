@@ -1,37 +1,28 @@
+
 const router = require('express').Router();
 
-const controller = require(
-    '../controllers/tableController'
-);
+const controller = require('../controllers/tableController');
 
-const {
-    requireAuth
-} = require(
-    '../middleware/authMiddleware'
-);
+const { requireAuth } = require('../middleware/authMiddleware');
 
 const {
     requirePermission
-} = require(
-    '../middleware/permissionMiddleware'
-);
+} = require('../middleware/permissionMiddleware');
 
-// ============================================================
-// PROTEGER TODAS LAS RUTAS
-// ============================================================
 router.use(requireAuth);
 
-// ============================================================
-// GET /api/tables?siteId=1
-// Consultar las mesas de una sede
-// ============================================================
+// CONSULTAR MESAS
 router.get(
     '/',
     requirePermission('TABLES_READ'),
     controller.list
 );
 
-// ============================================================
-// EXPORTAR ROUTER
-// ============================================================
+// CREAR MESA
+router.post(
+    '/',
+    requirePermission('TABLES_CREATE'),
+    controller.create
+);
+
 module.exports = router;
