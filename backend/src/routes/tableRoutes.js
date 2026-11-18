@@ -11,14 +11,14 @@ const {
 
 router.use(requireAuth);
 
-// CONSULTAR MESAS
+// Consultar mesas
 router.get(
     '/',
     requirePermission('TABLES_READ'),
     controller.list
 );
 
-// CREAR MESA
+// Crear mesa
 router.post(
     '/',
     requirePermission('TABLES_CREATE'),

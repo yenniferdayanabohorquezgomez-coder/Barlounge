@@ -1,9 +1,17 @@
 
 const pool = require('../config/db');
 
+// ============================================================
 // LISTAR MESAS POR SEDE
+// ============================================================
+
 async function list(siteId) {
-    if (!Number.isInteger(Number(siteId)) || Number(siteId) <= 0) {
+    const normalizedSiteId = Number(siteId);
+
+    if (
+        !Number.isInteger(normalizedSiteId) ||
+        normalizedSiteId <= 0
+    ) {
         const error = new Error('Invalid site.');
         error.status = 400;
         error.publicMessage = 'Select a valid site.';
@@ -11,18 +19,21 @@ async function list(siteId) {
     }
 
     const [sites] = await pool.query(
-        `SELECT site_id, name
-         FROM sites
-         WHERE site_id = ?
-         AND status = 'ACTIVE'
-         LIMIT 1`,
-        [siteId]
+        `
+        SELECT site_id, name
+        FROM sites
+        WHERE site_id = ?
+          AND status = 'ACTIVE'
+        LIMIT 1
+        `,
+        [normalizedSiteId]
     );
 
     if (!sites.length) {
         const error = new Error('Site not found.');
         error.status = 404;
-        error.publicMessage = 'The selected site is not active or does not exist.';
+        error.publicMessage =
+            'The selected site is not active or does not exist.';
         throw error;
     }
 
@@ -34,7 +45,8 @@ async function list(siteId) {
             s.name AS site,
             dt.table_number,
             CASE
-                WHEN bo.order_id IS NOT NULL THEN 'OCCUPIED'
+                WHEN bo.order_id IS NOT NULL
+                    THEN 'OCCUPIED'
                 ELSE dt.status
             END AS status,
             bo.order_id,
@@ -44,7 +56,9 @@ async function list(siteId) {
         INNER JOIN sites s
             ON s.site_id = dt.site_id
         LEFT JOIN (
-            SELECT table_id, MAX(order_id) AS order_id
+            SELECT
+                table_id,
+                MAX(order_id) AS order_id
             FROM bar_orders
             WHERE status = 'OPEN'
             GROUP BY table_id
@@ -57,68 +71,107 @@ async function list(siteId) {
             CAST(dt.table_number AS UNSIGNED),
             dt.table_number
         `,
-        [siteId]
+        [normalizedSiteId]
     );
 
     return rows;
 }
 
+// ============================================================
 // CREAR MESA
+// ============================================================
+
 async function create(siteId, tableNumber) {
     const normalizedSiteId = Number(siteId);
-    const normalizedNumber = String(tableNumber || '').trim();
 
-    if (!Number.isInteger(normalizedSiteId) || normalizedSiteId <= 0) {
+    const normalizedNumber = String(
+        tableNumber ?? ''
+    ).trim();
+
+    // Validar sede
+    if (
+        !Number.isInteger(normalizedSiteId) ||
+        normalizedSiteId <= 0
+    ) {
         const error = new Error('Invalid site.');
         error.status = 400;
         error.publicMessage = 'Select a valid site.';
         throw error;
     }
 
-    if (!normalizedNumber || normalizedNumber.length > 10) {
+    // Validar número de mesa
+    if (
+        !normalizedNumber ||
+        normalizedNumber.length > 10
+    ) {
         const error = new Error('Invalid table number.');
         error.status = 400;
-        error.publicMessage = 'Enter a table number with a maximum of 10 characters.';
+        error.publicMessage =
+            'Enter a table number with a maximum of 10 characters.';
         throw error;
     }
 
+    // Verificar sede activa
     const [sites] = await pool.query(
-        `SELECT site_id
-         FROM sites
-         WHERE site_id = ?
-         AND status = 'ACTIVE'
-         LIMIT 1`,
+        `
+        SELECT site_id
+        FROM sites
+        WHERE site_id = ?
+          AND status = 'ACTIVE'
+        LIMIT 1
+        `,
         [normalizedSiteId]
     );
 
     if (!sites.length) {
         const error = new Error('Site not found.');
         error.status = 404;
-        error.publicMessage = 'The selected site is not active or does not exist.';
+        error.publicMessage =
+            'The selected site is not active or does not exist.';
         throw error;
     }
 
+    // Verificar duplicado dentro de la misma sede
     const [existing] = await pool.query(
-        `SELECT table_id
-         FROM dining_tables
-         WHERE site_id = ?
-         AND table_number = ?
-         LIMIT 1`,
-        [normalizedSiteId, normalizedNumber]
+        `
+        SELECT table_id
+        FROM dining_tables
+        WHERE site_id = ?
+          AND table_number = ?
+        LIMIT 1
+        `,
+        [
+            normalizedSiteId,
+            normalizedNumber
+        ]
     );
 
     if (existing.length) {
-        const error = new Error('Table already exists.');
+        const error = new Error(
+            'Table already exists.'
+        );
+
         error.status = 409;
-        error.publicMessage = 'A table with that number already exists at this site.';
+        error.publicMessage =
+            'A table with that number already exists at this site.';
+
         throw error;
     }
 
+    // Crear mesa
     const [result] = await pool.query(
-        `INSERT INTO dining_tables
-            (site_id, table_number, status)
-         VALUES (?, ?, 'FREE')`,
-        [normalizedSiteId, normalizedNumber]
+        `
+        INSERT INTO dining_tables (
+            site_id,
+            table_number,
+            status
+        )
+        VALUES (?, ?, 'FREE')
+        `,
+        [
+            normalizedSiteId,
+            normalizedNumber
+        ]
     );
 
     return {

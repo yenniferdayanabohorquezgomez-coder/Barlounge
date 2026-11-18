@@ -48,6 +48,7 @@ const pool = require('./config/db');
 
         // Tables
         ['TABLES_READ', 'View tables'],
+        ['TABLES_CREATE', 'Create dining tables'],
 
         // Orders
         ['ORDERS_READ', 'View orders'],

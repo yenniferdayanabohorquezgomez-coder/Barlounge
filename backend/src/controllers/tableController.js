@@ -1,18 +1,31 @@
 
 const service = require('../services/tableService');
 
+// ============================================================
 // LISTAR MESAS
+// ============================================================
+
 async function list(req, res, next) {
     try {
-        const role = String(req.user.role_name || '').toLowerCase();
+        const role = String(
+            req.user.role_name || ''
+        )
+            .trim()
+            .toLowerCase();
 
-        const isWaiter = ['mesero', 'waiter'].includes(role);
+        const isWaiter = [
+            'mesero',
+            'waiter'
+        ].includes(role);
 
         const siteId = isWaiter
             ? Number(req.user.site_id)
             : Number(req.query.siteId);
 
-        if (!Number.isInteger(siteId) || siteId <= 0) {
+        if (
+            !Number.isInteger(siteId) ||
+            siteId <= 0
+        ) {
             return res.status(400).json({
                 message: 'Select a site to view its tables.'
             });
@@ -20,16 +33,23 @@ async function list(req, res, next) {
 
         const tables = await service.list(siteId);
 
-        return res.json(tables);
+        return res.status(200).json(tables);
     } catch (error) {
         next(error);
     }
 }
 
+// ============================================================
 // CREAR MESA
+// ============================================================
+
 async function create(req, res, next) {
     try {
-        const role = String(req.user.role_name || '').toLowerCase();
+        const role = String(
+            req.user.role_name || ''
+        )
+            .trim()
+            .toLowerCase();
 
         const isAdmin = [
             'administrador',
@@ -43,9 +63,18 @@ async function create(req, res, next) {
             });
         }
 
-        const { siteId, tableNumber } = req.body;
+        const { siteId, tableNumber } = req.body || {};
 
-        const table = await service.create(siteId, tableNumber);
+        if (!siteId || !tableNumber) {
+            return res.status(400).json({
+                message: 'Site and table number are required.'
+            });
+        }
+
+        const table = await service.create(
+            siteId,
+            tableNumber
+        );
 
         return res.status(201).json({
             message: 'Table created successfully.',

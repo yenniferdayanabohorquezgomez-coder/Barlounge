@@ -1,11 +1,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-
 import {
     useLocation,
     useNavigate,
     useSearchParams
 } from 'react-router-dom';
+import '../styles/TablesManagement.css';
 
 import { useAuth } from '../context/AuthContext';
 import { createOrder } from '../services/orderService';
@@ -74,18 +74,21 @@ export default function Tables() {
     // --------------------------------------------------------
     // IDENTIFY USER ROLE
     // --------------------------------------------------------
-
+    
     const rawRole =
-        user?.role ||
-        user?.role_name ||
-        user?.roleName ||
-        user?.rol ||
-        user?.role?.name ||
+        user?.role_name ??
+        user?.role ??
+        user?.roleName ??
+        user?.rol ??
         '';
 
     const role = String(
         typeof rawRole === 'object'
-            ? rawRole?.name || rawRole?.role_name || ''
+            ? (
+                rawRole?.name ||
+                rawRole?.role_name ||
+                ''
+            )
             : rawRole
     )
         .trim()
